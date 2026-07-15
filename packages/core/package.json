@@ -21,6 +21,7 @@
   "dependencies": {
     "@gamer-health/db": "workspace:*",
     "@gamer-health/validators": "workspace:*",
+    "drizzle-orm": "^0.44.7",
     "zod": "catalog:"
   },
   "devDependencies": {

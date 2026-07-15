@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@gamer-health/ui/button";
@@ -13,6 +14,9 @@ export async function AuthShowcase() {
   if (!session) {
     const discordConfigured = Boolean(
       env.AUTH_DISCORD_ID && env.AUTH_DISCORD_SECRET,
+    );
+    const googleConfigured = Boolean(
+      env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
     );
 
     return (
@@ -42,6 +46,30 @@ export async function AuthShowcase() {
             </Button>
           </form>
         )}
+
+        {googleConfigured && (
+          <form>
+            <Button
+              size="lg"
+              variant="outline"
+              formAction={async () => {
+                "use server";
+                const res = await auth.api.signInSocial({
+                  body: {
+                    provider: "google",
+                    callbackURL: "/",
+                  },
+                });
+                if (!res.url) {
+                  throw new Error("No URL returned from signInSocial");
+                }
+                redirect(res.url);
+              }}
+            >
+              Sign in with Google
+            </Button>
+          </form>
+        )}
       </div>
     );
   }
@@ -51,6 +79,13 @@ export async function AuthShowcase() {
       <p className="text-center text-2xl">
         <span>Logged in as {session.user.name}</span>
       </p>
+
+      <Link
+        href="/settings"
+        className="text-primary text-sm underline-offset-4 hover:underline"
+      >
+        Settings
+      </Link>
 
       <form>
         <Button

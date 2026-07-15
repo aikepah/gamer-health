@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@gamer-health/auth": "workspace:*",
+    "@gamer-health/core": "workspace:*",
     "@gamer-health/db": "workspace:*",
     "@gamer-health/validators": "workspace:*",
     "@trpc/server": "catalog:",

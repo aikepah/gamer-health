@@ -94,7 +94,7 @@ export async function respondToPrompt(ctx, input): Promise<HabitPrompt>;
 
 ### `syncHabitPrompts` algorithm (deterministic; follow exactly)
 
-Let `now` = input.now ?? new Date(); `tz` = `getOrCreateProfile(ctx).timezone`; `today` = `localDateString(now, tz)`. Load the user's enabled habits.
+Let `now` = input.now ?? new Date(); `tz` = `getOrCreateProfile(ctx).timezone ?? "UTC"` (timezone is null until the user saves one); `today` = `localDateString(now, tz)`. Load the user's enabled habits.
 
 1. **Session-interval generation.** Find the user's active session (`endedAt IS NULL`). If present, for each enabled `session_interval` habit with `intervalMinutes = m`: candidate due times `startedAt + k*m minutes` for `k = 1, 2, …` while `dueAt <= now` (cap `k` at 500 as a sanity bound). Insert `{ habitId, userId, sessionId, dueAt }` with `onConflictDoNothing` (dedupe index `habitId + dueAt`). No prompts are generated for ended or retro-logged sessions.
 2. **Daily generation** (for `today` only — never backfill):

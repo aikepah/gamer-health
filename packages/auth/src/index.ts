@@ -15,6 +15,8 @@ export function initAuth<
 
   discordClientId?: string;
   discordClientSecret?: string;
+  googleClientId?: string;
+  googleClientSecret?: string;
   extraPlugins?: TExtraPlugins;
 }) {
   const config = {
@@ -33,8 +35,8 @@ export function initAuth<
     emailAndPassword: {
       enabled: true,
     },
-    socialProviders:
-      options.discordClientId && options.discordClientSecret
+    socialProviders: {
+      ...(options.discordClientId && options.discordClientSecret
         ? {
             discord: {
               clientId: options.discordClientId,
@@ -42,7 +44,17 @@ export function initAuth<
               redirectURI: `${options.productionUrl}/api/auth/callback/discord`,
             },
           }
-        : {},
+        : {}),
+      ...(options.googleClientId && options.googleClientSecret
+        ? {
+            google: {
+              clientId: options.googleClientId,
+              clientSecret: options.googleClientSecret,
+              redirectURI: `${options.productionUrl}/api/auth/callback/google`,
+            },
+          }
+        : {}),
+    },
     trustedOrigins: ["expo://"],
     onAPIError: {
       onError(error, ctx) {

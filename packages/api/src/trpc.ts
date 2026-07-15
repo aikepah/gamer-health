@@ -10,7 +10,9 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { z, ZodError } from "zod/v4";
 
-import type { Auth } from "@gamer-health/auth";
+import type { Auth, Session } from "@gamer-health/auth";
+import type { ServiceCtx } from "@gamer-health/core";
+import { CoreError } from "@gamer-health/core";
 import { db } from "@gamer-health/db/client";
 
 /**
@@ -40,6 +42,20 @@ export const createTRPCContext = async (opts: {
     db,
   };
 };
+
+/**
+ * Builds the `ServiceCtx` passed to `packages/core` service functions from a
+ * tRPC context (or anything shaped like one — RSC contexts included).
+ */
+export function toServiceCtx(ctx: {
+  db: typeof db;
+  session: Session | null;
+}): ServiceCtx {
+  return {
+    db: ctx.db,
+    userId: ctx.session?.user.id ?? null,
+  };
+}
 /**
  * 2. INITIALIZATION
  *
@@ -97,13 +113,32 @@ const timingMiddleware = t.middleware(async ({ next, path }) => {
 });
 
 /**
+ * Maps `CoreError`s thrown by `packages/core` service functions to
+ * `TRPCError`s with the matching code. `CoreErrorCode` values are a subset of
+ * valid TRPC error codes, so this is a direct passthrough.
+ */
+const coreErrorMiddleware = t.middleware(async ({ next }) => {
+  const result = await next();
+  if (!result.ok && result.error.cause instanceof CoreError) {
+    throw new TRPCError({
+      code: result.error.cause.code,
+      message: result.error.cause.message,
+      cause: result.error.cause,
+    });
+  }
+  return result;
+});
+
+/**
  * Public (unauthed) procedure
  *
  * This is the base piece you use to build new queries and mutations on your
  * tRPC API. It does not guarantee that a user querying is authorized, but you
  * can still access user session data if they are logged in
  */
-export const publicProcedure = t.procedure.use(timingMiddleware);
+export const publicProcedure = t.procedure
+  .use(timingMiddleware)
+  .use(coreErrorMiddleware);
 
 /**
  * Protected (authenticated) procedure
@@ -113,16 +148,14 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  *
  * @see https://trpc.io/docs/procedures
  */
-export const protectedProcedure = t.procedure
-  .use(timingMiddleware)
-  .use(({ ctx, next }) => {
-    if (!ctx.session?.user) {
-      throw new TRPCError({ code: "UNAUTHORIZED" });
-    }
-    return next({
-      ctx: {
-        // infers the `session` as non-nullable
-        session: { ...ctx.session, user: ctx.session.user },
-      },
-    });
+export const protectedProcedure = publicProcedure.use(({ ctx, next }) => {
+  if (!ctx.session?.user) {
+    throw new TRPCError({ code: "UNAUTHORIZED" });
+  }
+  return next({
+    ctx: {
+      // infers the `session` as non-nullable
+      session: { ...ctx.session, user: ctx.session.user },
+    },
   });
+});

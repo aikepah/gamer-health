@@ -30,6 +30,7 @@
     "with-env": "dotenv -e ../../.env --"
   },
   "dependencies": {
+    "@gamer-health/validators": "workspace:*",
     "drizzle-orm": "^0.44.7",
     "drizzle-zod": "^0.8.3",
     "postgres": "^3.4.7",
@@ -40,6 +41,7 @@
     "@gamer-health/prettier-config": "workspace:*",
     "@gamer-health/tsconfig": "workspace:*",
     "@types/node": "catalog:",
+    "better-auth": "catalog:",
     "drizzle-kit": "^0.31.5",
     "eslint": "catalog:",
     "prettier": "catalog:",

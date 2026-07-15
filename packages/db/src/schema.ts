@@ -10,6 +10,8 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+import { GAMING_PLATFORMS } from "@gamer-health/validators";
+
 import { user } from "./auth-schema";
 
 // ---------------------------------------------------------------------------
@@ -23,7 +25,7 @@ export const Post = pgTable("post", (t) => ({
   createdAt: t.timestamp().defaultNow().notNull(),
   updatedAt: t
     .timestamp({ mode: "date", withTimezone: true })
-    .$onUpdateFn(() => sql`now()`),
+    .$onUpdateFn(() => new Date()),
 }));
 
 export const CreatePostSchema = createInsertSchema(Post, {
@@ -80,8 +82,13 @@ export const Profile = pgTable("profile", (t) => ({
     .text()
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
-  /** IANA timezone, e.g. "America/Chicago". Drives "local day" logic (streaks, daily prompts). */
-  timezone: t.varchar({ length: 64 }).notNull().default("UTC"),
+  /**
+   * IANA timezone, e.g. "America/Chicago". Drives "local day" logic (streaks,
+   * daily prompts). Null = user hasn't chosen yet (UIs may prefill a browser
+   * guess; server-side consumers use `?? "UTC"`). Null is distinct from an
+   * explicit "UTC" choice, which must never be overwritten by guessing.
+   */
+  timezone: t.varchar({ length: 64 }),
   /**
    * Free-form platform tags, e.g. ["PC", "PS5"].
    * No DB default (drizzle-kit push churns on array defaults); the Zod
@@ -98,12 +105,16 @@ export const Profile = pgTable("profile", (t) => ({
     .timestamp({ withTimezone: true, mode: "date" })
     .defaultNow()
     .notNull()
-    .$onUpdateFn(() => sql`now()`),
+    .$onUpdateFn(() => new Date()),
 }));
 
 export const UpsertProfileSchema = createInsertSchema(Profile, {
+  // Required on upsert even though the column is nullable: saving a profile
+  // always records an explicit timezone choice.
   timezone: z.string().min(1).max(64),
-  platforms: z.array(z.string().trim().min(1).max(32)).max(10).default([]),
+  // Closed set: the settings UI renders fixed chips and silently drops
+  // anything else, so reject unknown tags at the boundary.
+  platforms: z.array(z.enum(GAMING_PLATFORMS)).max(10).default([]),
   goals: z.string().max(1000).nullish(),
 }).omit({
   userId: true,
@@ -175,7 +186,7 @@ export const GameSession = pgTable(
       .timestamp({ withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull()
-      .$onUpdateFn(() => sql`now()`),
+      .$onUpdateFn(() => new Date()),
   }),
   (table) => [
     index("game_session_user_started_idx").on(
@@ -254,7 +265,7 @@ export const Habit = pgTable(
       .timestamp({ withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull()
-      .$onUpdateFn(() => sql`now()`),
+      .$onUpdateFn(() => new Date()),
   }),
   (table) => [
     // One instance of each built-in habit per user.
@@ -459,7 +470,7 @@ export const Streak = pgTable(
       .timestamp({ withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull()
-      .$onUpdateFn(() => sql`now()`),
+      .$onUpdateFn(() => new Date()),
   }),
   (table) => [primaryKey({ columns: [table.userId, table.kind] })],
 );

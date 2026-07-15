@@ -9,7 +9,7 @@ Google OAuth alongside the existing conditional Discord pattern, an app-owned `P
 ## Acceptance criteria
 
 - With `AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET` set, a "Sign in with Google" button appears and completes OAuth; with them unset, the button is absent and email/password still works. Discord behavior unchanged.
-- A signed-in user can open `/settings`, edit timezone / platforms / goals, save, reload, and see persisted values. First visit shows defaults (timezone UTC or browser-detected prefill, empty platforms/goals) without errors.
+- A signed-in user can open `/settings`, edit timezone / platforms / goals, save, reload, and see persisted values. First visit shows defaults (timezone null in the DB, browser-detected prefill in the form; empty platforms/goals) without errors. An explicitly saved timezone — including "UTC" — is never overwritten by prefill guessing.
 - `/settings` redirects to `/` when signed out.
 - `pnpm db:seed` creates (idempotently) demo user `demo@gamerhealth.dev` / password `demo1234` who can actually sign in through the UI, plus their profile row.
 - `pnpm typecheck && pnpm lint && pnpm test` green.
@@ -59,7 +59,7 @@ Table: `Profile` (`packages/db/src/schema.ts`), 1:1 with Better Auth `user`. Inp
 // getOrCreateProfile.ts — no input
 export async function getOrCreateProfile(ctx: ServiceCtx): Promise<Profile>;
 // requireUserId; SELECT by userId; if missing, INSERT defaults
-// { timezone: "UTC", platforms: [], goals: null } (onConflictDoNothing + re-select for safety)
+// { timezone: null, platforms: [], goals: null } (insert .returning(); re-select only on conflict race)
 
 // updateProfile.ts
 export const updateProfileInput = UpsertProfileSchema; // from @gamer-health/db/schema
@@ -67,7 +67,7 @@ export async function updateProfile(ctx: ServiceCtx, input): Promise<Profile>;
 // upsert (insert … onConflictDoUpdate on userId), returns the row
 ```
 
-Validate `timezone` is a real IANA zone: reject values not in `Intl.supportedValuesOf("timeZone")` with `CoreError("BAD_REQUEST")`.
+Validate `timezone` is resolvable by the runtime (`new Intl.DateTimeFormat` in try/catch): reject unresolvable values with `CoreError("BAD_REQUEST")`. Not a membership check against `Intl.supportedValuesOf` — browser/server ICU skew would reject options the client dropdown itself offered.
 
 ## tRPC routes (`packages/api/src/router/profile.ts`, mounted as `profile` in `root.ts`)
 
@@ -77,7 +77,7 @@ Validate `timezone` is a real IANA zone: reject values not in `Intl.supportedVal
 ## UI surfaces
 
 - **`/settings` page** (`apps/nextjs/src/app/settings/page.tsx`): server component checks session (redirect `/` if none), renders a client form:
-  - Timezone: searchable `<select>` fed by `Intl.supportedValuesOf("timeZone")`; if profile timezone is the default `"UTC"` and untouched, prefill with `Intl.DateTimeFormat().resolvedOptions().timeZone`.
+  - Timezone: searchable `<select>` fed by `Intl.supportedValuesOf("timeZone")`; when profile timezone is null (never saved), prefill with `Intl.DateTimeFormat().resolvedOptions().timeZone`.
   - Platforms: toggleable chips from the constant list `["PC", "PlayStation", "Xbox", "Switch", "Mobile", "Other"]` (constant in `packages/validators`, e.g. `GAMING_PLATFORMS`).
   - Goals: textarea (max 1000 chars).
   - Save via `profile.update`; show success state; use existing `@gamer-health/ui` components.
