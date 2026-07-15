@@ -1,0 +1,7 @@
+{
+  "name": "@gamer-health/tsconfig",
+  "private": true,
+  "files": [
+    "*.json"
+  ]
+}
