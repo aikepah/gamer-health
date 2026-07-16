@@ -70,6 +70,16 @@ Subagents live in `.claude/agents/`. Default routing:
 | `architect` | Fable 5 | Schema design, cross-cutting contracts, feature specs (`docs/features/*.md`) |
 | `debugger` | Fable 5 | Escalation when a builder is stuck |
 
+**Phase workflow (in order — issues come first):**
+
+1. **Issues first**: break the phase into GitHub issues (`gh issue create`,
+   one per feature-builder-sized work item, dependencies noted in the body,
+   grouped under a milestone) and get them approved by the user.
+2. **Architecture second**: the `architect` designs schema + specs FROM the
+   approved issues (specs reference their issue numbers).
+3. **Build**: feature-builders implement per spec; close issues on merge with
+   a comment noting the commit and what was verified.
+
 **Escalation rules (apply automatically when orchestrating):**
 
 1. Default all implementation delegation to `feature-builder` (Sonnet).
