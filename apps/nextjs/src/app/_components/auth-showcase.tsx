@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@gamer-health/ui/button";
@@ -74,33 +72,10 @@ export async function AuthShowcase() {
     );
   }
 
+  // Signed in: navigation and sign-out live in the persistent AppNav header.
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <p className="text-center text-2xl">
-        <span>Logged in as {session.user.name}</span>
-      </p>
-
-      <Link
-        href="/settings"
-        className="text-primary text-sm underline-offset-4 hover:underline"
-      >
-        Settings
-      </Link>
-
-      <form>
-        <Button
-          size="lg"
-          formAction={async () => {
-            "use server";
-            await auth.api.signOut({
-              headers: await headers(),
-            });
-            redirect("/");
-          }}
-        >
-          Sign out
-        </Button>
-      </form>
-    </div>
+    <p className="text-muted-foreground text-sm">
+      Welcome back, {session.user.name}
+    </p>
   );
 }

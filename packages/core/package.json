@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit --emitDeclarationOnly false"
   },
   "dependencies": {
+    "@date-fns/tz": "^1.5.0",
     "@gamer-health/db": "workspace:*",
     "@gamer-health/validators": "workspace:*",
     "drizzle-orm": "^0.44.7",

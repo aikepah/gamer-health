@@ -2,39 +2,40 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { cn } from "@gamer-health/ui";
-import { ThemeProvider, ThemeToggle } from "@gamer-health/ui/theme";
+import { ThemeProvider } from "@gamer-health/ui/theme";
 import { Toaster } from "@gamer-health/ui/toast";
 
 import { env } from "~/env";
 import { TRPCReactProvider } from "~/trpc/react";
+import { AppNav } from "./_components/app-nav";
 
 import "~/app/styles.css";
 
+const description =
+  "Log your gaming sessions, build healthy habits, check in on your mood, and level up your wellbeing.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(
-    env.VERCEL_ENV === "production"
-      ? "https://turbo.t3.gg"
+    env.VERCEL_ENV === "production" && env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`
       : "http://localhost:3000",
   ),
-  title: "Create T3 Turbo",
-  description: "Simple monorepo with shared backend for web & mobile apps",
-  openGraph: {
-    title: "Create T3 Turbo",
-    description: "Simple monorepo with shared backend for web & mobile apps",
-    url: "https://create-t3-turbo.vercel.app",
-    siteName: "Create T3 Turbo",
+  title: {
+    default: "Gamer Health",
+    template: "%s · Gamer Health",
   },
-  twitter: {
-    card: "summary_large_image",
-    site: "@jullerino",
-    creator: "@jullerino",
+  description,
+  openGraph: {
+    title: "Gamer Health",
+    description,
+    siteName: "Gamer Health",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
+    { media: "(prefers-color-scheme: light)", color: "#f6faf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e141c" },
   ],
 };
 
@@ -58,10 +59,8 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         )}
       >
         <ThemeProvider>
+          <AppNav />
           <TRPCReactProvider>{props.children}</TRPCReactProvider>
-          <div className="absolute right-4 bottom-4">
-            <ThemeToggle />
-          </div>
           <Toaster />
         </ThemeProvider>
       </body>

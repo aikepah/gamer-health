@@ -1,11 +1,21 @@
 import { authRouter } from "./router/auth";
-import { postRouter } from "./router/post";
+import { checkinRouter } from "./router/checkin";
+import { dashboardRouter } from "./router/dashboard";
+import { gameRouter } from "./router/game";
+import { gameSessionRouter } from "./router/game-session";
+import { gamificationRouter } from "./router/gamification";
+import { habitRouter } from "./router/habit";
 import { profileRouter } from "./router/profile";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
-  post: postRouter,
+  checkin: checkinRouter,
+  dashboard: dashboardRouter,
+  game: gameRouter,
+  gameSession: gameSessionRouter,
+  gamification: gamificationRouter,
+  habit: habitRouter,
   profile: profileRouter,
 });
 
