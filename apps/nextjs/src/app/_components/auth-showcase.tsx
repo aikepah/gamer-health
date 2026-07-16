@@ -88,6 +88,12 @@ export async function AuthShowcase() {
           Sessions
         </Link>
         <Link
+          href="/habits"
+          className="text-primary text-sm underline-offset-4 hover:underline"
+        >
+          Habits
+        </Link>
+        <Link
           href="/settings"
           className="text-primary text-sm underline-offset-4 hover:underline"
         >

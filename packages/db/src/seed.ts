@@ -12,7 +12,15 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { eq } from "drizzle-orm";
 
 import { db } from "./client";
-import { Game, GameSession, Post, Profile, user } from "./schema";
+import {
+  Game,
+  GameSession,
+  Habit,
+  HabitPrompt,
+  Post,
+  Profile,
+  user,
+} from "./schema";
 
 export const DEMO_EMAIL = "demo@gamerhealth.dev";
 const DEMO_PASSWORD = "demo1234";
@@ -148,28 +156,205 @@ async function seedSessionTracking(demoUserId: string) {
   }
 
   // Idempotency: wipe the demo user's sessions and re-insert deterministically.
+  // (Cascades to habit_prompt/checkin rows referencing them.)
   await db.delete(GameSession).where(eq(GameSession.userId, demoUserId));
 
-  await db.insert(GameSession).values(
-    DEMO_SESSIONS.map((s) => {
-      const startedAt = chicagoLocal(
-        s.daysAgo,
-        s.startHour,
-        s.startMinute ?? 0,
-      );
-      const endedAt = new Date(
-        startedAt.getTime() + s.durationMinutes * 60_000,
-      );
-      return {
-        userId: demoUserId,
-        gameId: gameId(s.game),
-        startedAt,
-        endedAt,
-        source: "manual" as const,
-        notes: s.notes ?? null,
-      };
+  const inserted = await db
+    .insert(GameSession)
+    .values(
+      DEMO_SESSIONS.map((s) => {
+        const startedAt = chicagoLocal(
+          s.daysAgo,
+          s.startHour,
+          s.startMinute ?? 0,
+        );
+        const endedAt = new Date(
+          startedAt.getTime() + s.durationMinutes * 60_000,
+        );
+        return {
+          userId: demoUserId,
+          gameId: gameId(s.game),
+          startedAt,
+          endedAt,
+          source: "manual" as const,
+          notes: s.notes ?? null,
+        };
+      }),
+    )
+    .returning();
+
+  // DEMO_SESSIONS has no duplicate game names, so this 1:1 zip is safe and
+  // relies on `returning()` preserving insert order.
+  return new Map(
+    DEMO_SESSIONS.map((s, i) => {
+      const row = inserted[i];
+      if (!row) {
+        throw new Error(`Seed session insert missing a row for: ${s.game}`);
+      }
+      return [s.game, row] as const;
     }),
   );
+}
+
+// --- Habit engine: demo user's habits + representative historical prompts -
+
+type SeedGameSession = NonNullable<
+  Awaited<ReturnType<typeof seedSessionTracking>> extends Map<string, infer V>
+    ? V
+    : never
+>;
+
+type SeedPromptStatus = "done" | "skipped" | "expired";
+
+/** Built-in habits enabled for the demo user, with their default configs. */
+const DEMO_ENABLED_HABITS = [
+  {
+    kind: "break_interval" as const,
+    triggerType: "session_interval" as const,
+    config: { intervalMinutes: 50 },
+  },
+  {
+    kind: "hydrate" as const,
+    triggerType: "session_interval" as const,
+    config: { intervalMinutes: 30 },
+  },
+  {
+    kind: "daily_movement" as const,
+    triggerType: "daily_schedule" as const,
+    config: { timeOfDay: "17:00" },
+  },
+  {
+    kind: "bedtime_cutoff" as const,
+    triggerType: "daily_schedule" as const,
+    config: { bedtime: "23:00", leadMinutes: 60 },
+  },
+];
+
+// Long-enough past sessions (>=150min) to plausibly have generated both a
+// break_interval (+50min) and two hydrate (+30min, +60min) prompts, with a
+// mix of statuses across the three (done/skipped/expired each appear).
+const INTERVAL_PROMPT_SESSIONS: {
+  game: (typeof CATALOG_GAMES)[number]["name"];
+  statuses: [SeedPromptStatus, SeedPromptStatus, SeedPromptStatus];
+}[] = [
+  { game: "Hades II", statuses: ["done", "done", "skipped"] },
+  { game: "Cyberpunk 2077", statuses: ["skipped", "done", "expired"] },
+  { game: "Baldur's Gate 3", statuses: ["expired", "skipped", "done"] },
+];
+
+// 3 past daily_movement prompts on distinct days, sessionId null.
+const DAILY_MOVEMENT_PROMPTS: {
+  daysAgo: number;
+  status: "done" | "expired";
+}[] = [
+  { daysAgo: 7, status: "done" },
+  { daysAgo: 5, status: "done" },
+  { daysAgo: 3, status: "expired" },
+];
+
+async function seedHabitEngine(
+  demoUserId: string,
+  sessionsByGame: Map<string, SeedGameSession>,
+) {
+  // Cascades to this user's habit_prompt rows (habitId FK, onDelete cascade).
+  await db.delete(Habit).where(eq(Habit.userId, demoUserId));
+
+  const habitRows = await db
+    .insert(Habit)
+    .values(
+      DEMO_ENABLED_HABITS.map((h) => ({
+        userId: demoUserId,
+        kind: h.kind,
+        triggerType: h.triggerType,
+        enabled: true,
+        config: h.config,
+      })),
+    )
+    .returning();
+
+  const habitIdByKind = new Map<string, string>(
+    habitRows.map((h) => [h.kind, h.id]),
+  );
+  function habitId(kind: string): string {
+    const id = habitIdByKind.get(kind);
+    if (!id) {
+      throw new Error(`Seed habit not found: ${kind}`);
+    }
+    return id;
+  }
+
+  function sessionFor(game: string): SeedGameSession {
+    const session = sessionsByGame.get(game);
+    if (!session) {
+      throw new Error(`Seed session not found for habit prompts: ${game}`);
+    }
+    return session;
+  }
+
+  const minutes = (n: number) => n * 60_000;
+  function respondedAtFor(status: SeedPromptStatus, dueAt: Date, offsetMinutes: number) {
+    return status === "expired" ? null : new Date(dueAt.getTime() + minutes(offsetMinutes));
+  }
+
+  interface SeedHabitPrompt {
+    habitId: string;
+    userId: string;
+    sessionId: string | null;
+    dueAt: Date;
+    status: SeedPromptStatus;
+    respondedAt: Date | null;
+  }
+
+  const prompts: SeedHabitPrompt[] = [];
+
+  for (const { game, statuses } of INTERVAL_PROMPT_SESSIONS) {
+    const session = sessionFor(game);
+    const [breakStatus, hydrate1Status, hydrate2Status] = statuses;
+
+    const breakDueAt = new Date(session.startedAt.getTime() + minutes(50));
+    prompts.push({
+      habitId: habitId("break_interval"),
+      userId: demoUserId,
+      sessionId: session.id,
+      dueAt: breakDueAt,
+      status: breakStatus,
+      respondedAt: respondedAtFor(breakStatus, breakDueAt, 2),
+    });
+
+    const hydrate1DueAt = new Date(session.startedAt.getTime() + minutes(30));
+    prompts.push({
+      habitId: habitId("hydrate"),
+      userId: demoUserId,
+      sessionId: session.id,
+      dueAt: hydrate1DueAt,
+      status: hydrate1Status,
+      respondedAt: respondedAtFor(hydrate1Status, hydrate1DueAt, 2),
+    });
+
+    const hydrate2DueAt = new Date(session.startedAt.getTime() + minutes(60));
+    prompts.push({
+      habitId: habitId("hydrate"),
+      userId: demoUserId,
+      sessionId: session.id,
+      dueAt: hydrate2DueAt,
+      status: hydrate2Status,
+      respondedAt: respondedAtFor(hydrate2Status, hydrate2DueAt, 3),
+    });
+  }
+
+  for (const { daysAgo, status } of DAILY_MOVEMENT_PROMPTS) {
+    const dueAt = chicagoLocal(daysAgo, 17, 0);
+    prompts.push({
+      habitId: habitId("daily_movement"),
+      userId: demoUserId,
+      sessionId: null,
+      dueAt,
+      status,
+      respondedAt: respondedAtFor(status, dueAt, 10),
+    });
+  }
+
+  await db.insert(HabitPrompt).values(prompts);
 }
 
 async function seed() {
@@ -185,7 +370,10 @@ async function seed() {
   const demoUser = await seedDemoUser();
 
   // --- Session tracking: catalog + demo user's session history ---
-  await seedSessionTracking(demoUser.id);
+  const sessionsByGame = await seedSessionTracking(demoUser.id);
+
+  // --- Habit engine: demo user's habits + representative historical prompts
+  await seedHabitEngine(demoUser.id, sessionsByGame);
 
   console.log("Seed complete.");
 }

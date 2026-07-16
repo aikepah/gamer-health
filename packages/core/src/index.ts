@@ -5,8 +5,35 @@ export {
 } from "./gamification/events";
 export type { RecordRewardEventInput } from "./gamification/events";
 export { requireUserId } from "./lib/auth";
+export { addMinutes, localDateString, zonedTimeToUtc } from "./lib/dates";
 export type { CoreErrorCode } from "./lib/errors";
 export { CoreError } from "./lib/errors";
+export {
+  HABIT_DEFINITIONS,
+  HABIT_KINDS,
+  habitKindSchema,
+} from "./habits/definitions";
+export type { HabitDefinition, HabitKind } from "./habits/definitions";
+export { listHabits } from "./habits/listHabits";
+export type { ListHabitsItem } from "./habits/listHabits";
+export {
+  respondToPrompt,
+  respondToPromptInput,
+} from "./habits/respondToPrompt";
+export type {
+  HabitPromptRow,
+  RespondToPromptInput,
+} from "./habits/respondToPrompt";
+export {
+  syncHabitPrompts,
+  syncHabitPromptsInput,
+} from "./habits/syncHabitPrompts";
+export type {
+  PendingHabitPrompt,
+  SyncHabitPromptsInput,
+} from "./habits/syncHabitPrompts";
+export { upsertHabit, upsertHabitInput } from "./habits/upsertHabit";
+export type { HabitRow, UpsertHabitInput } from "./habits/upsertHabit";
 export { getOrCreateProfile } from "./profile/getOrCreateProfile";
 export type { ProfileRow } from "./profile/getOrCreateProfile";
 export { updateProfile, updateProfileInput } from "./profile/updateProfile";

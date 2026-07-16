@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { getSession } from "~/auth/server";
 import { HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { AuthShowcase } from "./_components/auth-showcase";
+import { PromptTray } from "./_components/habits/prompt-tray";
 import {
   CreatePostForm,
   PostCardSkeleton,
@@ -35,6 +36,8 @@ export default async function HomePage() {
               <ActiveSessionCard />
             </Suspense>
           )}
+
+          {session && <PromptTray />}
 
           <CreatePostForm />
           <div className="w-full max-w-2xl overflow-y-scroll">
