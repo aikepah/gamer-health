@@ -41,11 +41,8 @@ export default async function HomePage() {
 
   return (
     <HydrateClient>
-      <main className="container max-w-5xl py-12">
-        <header className="mb-8 flex flex-col items-center gap-4 text-center">
-          <h1 className="text-3xl font-extrabold tracking-tight">
-            Gamer <span className="text-primary">Health</span>
-          </h1>
+      <main className="container max-w-5xl py-8">
+        <header className="mb-6">
           <AuthShowcase />
         </header>
 

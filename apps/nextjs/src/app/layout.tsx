@@ -2,11 +2,12 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { cn } from "@gamer-health/ui";
-import { ThemeProvider, ThemeToggle } from "@gamer-health/ui/theme";
+import { ThemeProvider } from "@gamer-health/ui/theme";
 import { Toaster } from "@gamer-health/ui/toast";
 
 import { env } from "~/env";
 import { TRPCReactProvider } from "~/trpc/react";
+import { AppNav } from "./_components/app-nav";
 
 import "~/app/styles.css";
 
@@ -58,10 +59,8 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         )}
       >
         <ThemeProvider>
+          <AppNav />
           <TRPCReactProvider>{props.children}</TRPCReactProvider>
-          <div className="absolute right-4 bottom-4">
-            <ThemeToggle />
-          </div>
           <Toaster />
         </ThemeProvider>
       </body>
