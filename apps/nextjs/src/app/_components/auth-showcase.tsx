@@ -82,6 +82,12 @@ export async function AuthShowcase() {
 
       <div className="flex gap-4">
         <Link
+          href="/dashboard"
+          className="text-primary text-sm underline-offset-4 hover:underline"
+        >
+          Dashboard
+        </Link>
+        <Link
           href="/sessions"
           className="text-primary text-sm underline-offset-4 hover:underline"
         >

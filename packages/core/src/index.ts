@@ -32,9 +32,55 @@ export type {
   StreakSummary,
 } from "./gamification/queries";
 export { requireUserId } from "./lib/auth";
-export { addMinutes, localDateString, zonedTimeToUtc } from "./lib/dates";
+export {
+  addDaysToDateString,
+  addMinutes,
+  localDateString,
+  zonedTimeToUtc,
+} from "./lib/dates";
 export type { CoreErrorCode } from "./lib/errors";
 export { CoreError } from "./lib/errors";
+export { buildLocalDateRange, daysInput } from "./dashboard/common";
+export type { LocalDateRange } from "./dashboard/common";
+export {
+  getPlaytimeByDay,
+  getPlaytimeByDayInput,
+  zeroFillPlaytime,
+} from "./dashboard/getPlaytimeByDay";
+export type {
+  GetPlaytimeByDayInput,
+  PlaytimeByDay,
+  RawPlaytimeDay,
+} from "./dashboard/getPlaytimeByDay";
+export {
+  aggregateHabitCompletion,
+  getHabitCompletionStats,
+  getHabitCompletionStatsInput,
+} from "./dashboard/getHabitCompletionStats";
+export type {
+  GetHabitCompletionStatsInput,
+  HabitCompletionCountRow,
+  HabitCompletionStats,
+} from "./dashboard/getHabitCompletionStats";
+export {
+  getWellnessTrend,
+  getWellnessTrendInput,
+  zeroFillWellness,
+} from "./dashboard/getWellnessTrend";
+export type {
+  GetWellnessTrendInput,
+  RawWellnessDay,
+  WellnessTrendDay,
+} from "./dashboard/getWellnessTrend";
+export {
+  getPlaytimeVsWellness,
+  getPlaytimeVsWellnessInput,
+  mergePlaytimeAndMood,
+} from "./dashboard/getPlaytimeVsWellness";
+export type {
+  GetPlaytimeVsWellnessInput,
+  PlaytimeVsWellnessDay,
+} from "./dashboard/getPlaytimeVsWellness";
 export {
   HABIT_DEFINITIONS,
   HABIT_KINDS,

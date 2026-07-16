@@ -41,3 +41,15 @@ export function zonedTimeToUtc(
 export function addMinutes(d: Date, minutes: number): Date {
   return new Date(d.getTime() + minutes * 60_000);
 }
+
+/**
+ * Adds `days` (may be negative) to a "YYYY-MM-DD" date string, returning a
+ * new "YYYY-MM-DD" string. Pure calendar-day arithmetic anchored at UTC
+ * midnight — this is not a timezone conversion (the string has no time-of-day
+ * component), so it's safe to use on already-localized date strings such as
+ * `localDateString`'s output (used by the dashboard's day-range bucketing).
+ */
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const ms = Date.parse(`${dateStr}T00:00:00Z`) + days * 86_400_000;
+  return new Date(ms).toISOString().slice(0, 10);
+}

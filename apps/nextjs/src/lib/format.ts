@@ -35,3 +35,19 @@ export function toDatetimeLocalValue(date: Date): string {
 export function fromDatetimeLocalValue(value: string): Date {
   return new Date(value);
 }
+
+/** Formats a minute count as hours for chart axis labels, e.g. "1.5h". */
+export function formatMinutesAsHours(minutes: number): string {
+  return `${(minutes / 60).toFixed(1)}h`;
+}
+
+/** Formats a "YYYY-MM-DD" local-date string as a short chart label, e.g. "Jul 14". */
+export function formatDateLabel(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(year ?? 1970, (month ?? 1) - 1, day ?? 1))
+    .toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+}
