@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 
+import { getSession } from "~/auth/server";
 import { HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { AuthShowcase } from "./_components/auth-showcase";
 import {
@@ -7,9 +8,14 @@ import {
   PostCardSkeleton,
   PostList,
 } from "./_components/posts";
+import { ActiveSessionCard } from "./_components/sessions/active-session-card";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await getSession();
   prefetch(trpc.post.all.queryOptions());
+  if (session) {
+    prefetch(trpc.gameSession.active.queryOptions());
+  }
 
   return (
     <HydrateClient>
@@ -19,6 +25,16 @@ export default function HomePage() {
             Create <span className="text-primary">T3</span> Turbo
           </h1>
           <AuthShowcase />
+
+          {session && (
+            <Suspense
+              fallback={
+                <div className="bg-muted h-32 w-full max-w-md animate-pulse rounded-lg" />
+              }
+            >
+              <ActiveSessionCard />
+            </Suspense>
+          )}
 
           <CreatePostForm />
           <div className="w-full max-w-2xl overflow-y-scroll">

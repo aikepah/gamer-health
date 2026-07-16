@@ -12,6 +12,8 @@ export const GAMING_PLATFORMS = [
 
 export type GamingPlatform = (typeof GAMING_PLATFORMS)[number];
 
+export * from "./gamification";
+
 export const unused = z.string().describe(
   `This lib is currently not used as we use drizzle-zod for simple schemas
    But as your application grows and you need other validators to share

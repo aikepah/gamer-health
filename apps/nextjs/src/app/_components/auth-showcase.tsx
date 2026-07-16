@@ -80,12 +80,20 @@ export async function AuthShowcase() {
         <span>Logged in as {session.user.name}</span>
       </p>
 
-      <Link
-        href="/settings"
-        className="text-primary text-sm underline-offset-4 hover:underline"
-      >
-        Settings
-      </Link>
+      <div className="flex gap-4">
+        <Link
+          href="/sessions"
+          className="text-primary text-sm underline-offset-4 hover:underline"
+        >
+          Sessions
+        </Link>
+        <Link
+          href="/settings"
+          className="text-primary text-sm underline-offset-4 hover:underline"
+        >
+          Settings
+        </Link>
+      </div>
 
       <form>
         <Button
