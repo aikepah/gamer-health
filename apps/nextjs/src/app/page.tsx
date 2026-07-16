@@ -5,6 +5,8 @@ import { HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { AuthShowcase } from "./_components/auth-showcase";
 import { CheckinHistory } from "./_components/checkins/checkin-history";
 import { DailyCheckinCard } from "./_components/checkins/daily-checkin-card";
+import { AchievementsList } from "./_components/gamification/achievements-list";
+import { PlayerStatsCard } from "./_components/gamification/player-stats-card";
 import { PromptTray } from "./_components/habits/prompt-tray";
 import {
   CreatePostForm,
@@ -18,6 +20,8 @@ export default async function HomePage() {
   prefetch(trpc.post.all.queryOptions());
   if (session) {
     prefetch(trpc.gameSession.active.queryOptions());
+    prefetch(trpc.gamification.summary.queryOptions());
+    prefetch(trpc.gamification.achievements.queryOptions());
   }
 
   return (
@@ -39,9 +43,11 @@ export default async function HomePage() {
             </Suspense>
           )}
 
+          {session && <PlayerStatsCard />}
           {session && <PromptTray />}
           {session && <DailyCheckinCard />}
           {session && <CheckinHistory />}
+          {session && <AchievementsList />}
 
           <CreatePostForm />
           <div className="w-full max-w-2xl overflow-y-scroll">

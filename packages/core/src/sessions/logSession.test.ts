@@ -1,9 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ServiceCtx } from "../ctx";
 import type { GameSessionRow } from "./startSession";
-import { CoreError } from "../lib/errors";
-import { logSession } from "./logSession";
+
+const recordRewardEvent = vi.fn().mockResolvedValue({ recorded: true });
+vi.mock("../gamification/events", () => ({
+  recordRewardEvent: (...args: unknown[]) =>
+    (recordRewardEvent as (...a: unknown[]) => unknown)(...args),
+}));
+
+// Import after the mock so logSession picks up the mocked module.
+const { CoreError } = await import("../lib/errors");
+const { logSession } = await import("./logSession");
 
 function makeRow(overrides: Partial<GameSessionRow> = {}): GameSessionRow {
   return {
@@ -23,7 +31,6 @@ function makeRow(overrides: Partial<GameSessionRow> = {}): GameSessionRow {
 function makeCtx(options: {
   userId: string | null;
   sessionInsertReturning?: GameSessionRow[];
-  rewardRows?: { id: string }[];
 }): {
   ctx: ServiceCtx;
   insert: ReturnType<typeof vi.fn>;
@@ -35,18 +42,7 @@ function makeCtx(options: {
     .fn()
     .mockReturnValue({ returning: sessionReturning });
 
-  const rewardReturning = vi
-    .fn()
-    .mockResolvedValue(options.rewardRows ?? [{ id: "reward_1" }]);
-  const onConflictDoNothing = vi
-    .fn()
-    .mockReturnValue({ returning: rewardReturning });
-  const rewardValues = vi.fn().mockReturnValue({ onConflictDoNothing });
-
-  const insert = vi
-    .fn()
-    .mockReturnValueOnce({ values: sessionValues })
-    .mockReturnValueOnce({ values: rewardValues });
+  const insert = vi.fn().mockReturnValue({ values: sessionValues });
 
   const db = { insert } as unknown as ServiceCtx["db"];
 
@@ -60,6 +56,10 @@ const baseInput = {
 };
 
 describe("logSession", () => {
+  beforeEach(() => {
+    recordRewardEvent.mockClear();
+  });
+
   it("throws CoreError(UNAUTHORIZED) when unauthenticated", async () => {
     const { ctx } = makeCtx({ userId: null });
     await expect(logSession(ctx, baseInput)).rejects.toMatchObject({
@@ -104,16 +104,10 @@ describe("logSession", () => {
     });
 
     expect(result).toBe(created);
-    expect(insert).toHaveBeenCalledTimes(2);
-    const rewardValuesFn = (
-      insert.mock.results[1]?.value as { values: (v: unknown) => unknown }
-    ).values;
-    expect(rewardValuesFn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        eventType: "session_logged",
-        sourceKind: "game_session",
-        sourceId: created.id,
-      }),
-    );
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(recordRewardEvent).toHaveBeenCalledWith(ctx, {
+      eventType: "session_logged",
+      sourceId: created.id,
+    });
   });
 });

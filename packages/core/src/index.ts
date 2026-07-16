@@ -14,6 +14,23 @@ export {
   recordRewardEventInput,
 } from "./gamification/events";
 export type { RecordRewardEventInput } from "./gamification/events";
+export { xpForLevel, levelFromXp, levelProgress } from "./gamification/level";
+export type { LevelProgress } from "./gamification/level";
+export {
+  getGamificationSummary,
+  getGamificationSummaryInput,
+  listAchievements,
+  listRecentRewardEvents,
+  listRecentRewardEventsInput,
+} from "./gamification/queries";
+export type {
+  AchievementSummary,
+  GamificationSummary,
+  GetGamificationSummaryInput,
+  ListRecentRewardEventsInput,
+  RewardEventRow,
+  StreakSummary,
+} from "./gamification/queries";
 export { requireUserId } from "./lib/auth";
 export { addMinutes, localDateString, zonedTimeToUtc } from "./lib/dates";
 export type { CoreErrorCode } from "./lib/errors";

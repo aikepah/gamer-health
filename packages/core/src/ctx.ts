@@ -15,3 +15,14 @@ export interface ServiceCtx {
   /** Authenticated user id. Services that require auth should accept a ctx where this is set. */
   userId: string | null;
 }
+
+/**
+ * The transaction-scoped variant of `ServiceCtx["db"]` — i.e. the `tx`
+ * parameter inside `ctx.db.transaction(async (tx) => ...)`. `transaction`'s
+ * own type param is the callback's *return* type, which the `tx` parameter
+ * type doesn't depend on, so this double `Parameters<>` extraction resolves
+ * to a concrete type regardless.
+ */
+export type TxDb = Parameters<
+  Parameters<ServiceCtx["db"]["transaction"]>[0]
+>[0];

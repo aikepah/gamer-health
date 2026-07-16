@@ -1,8 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ServiceCtx } from "../ctx";
 import type { GameSessionRow } from "./startSession";
-import { stopSession } from "./stopSession";
+
+const recordRewardEvent = vi.fn().mockResolvedValue({ recorded: true });
+vi.mock("../gamification/events", () => ({
+  recordRewardEvent: (...args: unknown[]) =>
+    (recordRewardEvent as (...a: unknown[]) => unknown)(...args),
+}));
+
+// Import after the mock so stopSession picks up the mocked module.
+const { stopSession } = await import("./stopSession");
 
 function makeRow(overrides: Partial<GameSessionRow> = {}): GameSessionRow {
   return {
@@ -23,7 +31,6 @@ function makeCtx(options: {
   userId: string | null;
   activeSession?: GameSessionRow;
   updatedSession?: GameSessionRow[];
-  rewardRows?: { id: string }[];
 }): {
   ctx: ServiceCtx;
   update: ReturnType<typeof vi.fn>;
@@ -40,14 +47,7 @@ function makeCtx(options: {
   const updateSet = vi.fn().mockReturnValue({ where: updateWhere });
   const update = vi.fn().mockReturnValue({ set: updateSet });
 
-  const rewardReturning = vi
-    .fn()
-    .mockResolvedValue(options.rewardRows ?? [{ id: "reward_1" }]);
-  const onConflictDoNothing = vi
-    .fn()
-    .mockReturnValue({ returning: rewardReturning });
-  const insertValues = vi.fn().mockReturnValue({ onConflictDoNothing });
-  const insert = vi.fn().mockReturnValue({ values: insertValues });
+  const insert = vi.fn();
 
   const db = {
     query: { GameSession: { findFirst } },
@@ -59,6 +59,10 @@ function makeCtx(options: {
 }
 
 describe("stopSession", () => {
+  beforeEach(() => {
+    recordRewardEvent.mockClear();
+  });
+
   it("throws CoreError(UNAUTHORIZED) when unauthenticated", async () => {
     const { ctx } = makeCtx({ userId: null });
     await expect(stopSession(ctx, {})).rejects.toMatchObject({
@@ -98,7 +102,7 @@ describe("stopSession", () => {
   it("sets endedAt and emits session_logged once", async () => {
     const active = makeRow();
     const stopped = makeRow({ endedAt: new Date("2026-07-15T11:00:00Z") });
-    const { ctx, insert } = makeCtx({
+    const { ctx } = makeCtx({
       userId: "user_1",
       activeSession: active,
       updatedSession: [stopped],
@@ -107,17 +111,10 @@ describe("stopSession", () => {
     const result = await stopSession(ctx, {});
 
     expect(result).toBe(stopped);
-    expect(insert).toHaveBeenCalledOnce();
-    const valuesCall = (
-      insert.mock.results[0]?.value as { values: (v: unknown) => unknown }
-    ).values;
-    expect(valuesCall).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user_1",
-        eventType: "session_logged",
-        sourceKind: "game_session",
-        sourceId: stopped.id,
-      }),
-    );
+    expect(recordRewardEvent).toHaveBeenCalledOnce();
+    expect(recordRewardEvent).toHaveBeenCalledWith(ctx, {
+      eventType: "session_logged",
+      sourceId: stopped.id,
+    });
   });
 });

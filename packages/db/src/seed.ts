@@ -7,9 +7,16 @@
  * without manual setup. Keep inserts idempotent (delete-then-insert or
  * onConflictDoNothing) so the script can be re-run safely.
  */
+import { TZDate } from "@date-fns/tz";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { eq } from "drizzle-orm";
+
+import {
+  ACHIEVEMENT_DEFS,
+  REWARD_EVENT_DEFS,
+  STREAK_KINDS,
+} from "@gamer-health/validators";
 
 import { db } from "./client";
 import {
@@ -20,7 +27,10 @@ import {
   HabitPrompt,
   Post,
   Profile,
+  RewardEvent,
+  Streak,
   user,
+  UserAchievement,
 } from "./schema";
 
 export const DEMO_EMAIL = "demo@gamerhealth.dev";
@@ -361,7 +371,7 @@ async function seedHabitEngine(
     });
   }
 
-  await db.insert(HabitPrompt).values(prompts);
+  return db.insert(HabitPrompt).values(prompts).returning();
 }
 
 // --- Check-ins: demo user's daily + post_session history. None dated today
@@ -470,7 +480,151 @@ async function seedCheckins(
     };
   });
 
-  await db.insert(Checkin).values([...dailyRows, ...postSessionRows]);
+  return db
+    .insert(Checkin)
+    .values([...dailyRows, ...postSessionRows])
+    .returning();
+}
+
+// --- Gamification: XP ledger backfilled from the sections above, plus a
+// couple of explicit demo streaks and achievement unlocks. Seed can't import
+// @gamer-health/core (dependency cycle), so this inserts `reward_event` /
+// `streak` / `user_achievement` rows directly from the
+// @gamer-health/validators taxonomy constants instead of running the real
+// engine (docs/features/gamification.md). --------------------------------
+
+/**
+ * The actual "YYYY-MM-DD" wall-clock date in America/Chicago right now.
+ * Unlike `chicagoLocal` (a fixed-offset approximation used elsewhere in this
+ * file for demo-plausible historical timestamps), the streak
+ * `lastActivityDate` this feeds must match what `recordRewardEvent`'s real
+ * `localDateString(now, "America/Chicago")` computes — otherwise a check-in
+ * right after a fresh seed could see a bogus gap/consecutive-day result. Uses
+ * `@date-fns/tz` directly (not `@gamer-health/core`, to avoid the db->core
+ * dependency cycle) for real IANA tz math.
+ */
+function chicagoToday(): string {
+  const zoned = new TZDate(new Date(), "America/Chicago");
+  const year = zoned.getFullYear();
+  const month = String(zoned.getMonth() + 1).padStart(2, "0");
+  const day = String(zoned.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const DEMO_STREAKS: Record<
+  (typeof STREAK_KINDS)[number],
+  { current: number; longest: number }
+> = {
+  daily_checkin: { current: 3, longest: 5 },
+  daily_habit: { current: 2, longest: 4 },
+  habit_hydrate: { current: 1, longest: 3 },
+};
+
+async function seedGamification(
+  demoUserId: string,
+  sessions: SeedGameSession[],
+  prompts: (typeof HabitPrompt.$inferSelect)[],
+  checkins: (typeof Checkin.$inferSelect)[],
+) {
+  // Idempotency: wipe and rebuild the demo user's XP ledger, streaks, and
+  // achievement unlocks from the seeded sessions/prompts/check-ins.
+  await db.delete(RewardEvent).where(eq(RewardEvent.userId, demoUserId));
+  await db.delete(Streak).where(eq(Streak.userId, demoUserId));
+  await db
+    .delete(UserAchievement)
+    .where(eq(UserAchievement.userId, demoUserId));
+
+  // Every seeded session is completed (`endedAt` set) -> one session_logged each.
+  const sessionEvents = sessions.map((s) => {
+    if (!s.endedAt) {
+      throw new Error(`Seed session ${s.id} has no endedAt`);
+    }
+    return {
+      userId: demoUserId,
+      eventType: "session_logged",
+      xp: REWARD_EVENT_DEFS.session_logged.xp,
+      sourceKind: REWARD_EVENT_DEFS.session_logged.sourceKind,
+      sourceId: s.id,
+      createdAt: s.endedAt,
+    };
+  });
+
+  const promptEvents = prompts
+    .filter((p) => p.status === "done")
+    .map((p) => ({
+      userId: demoUserId,
+      eventType: "habit_prompt_completed",
+      xp: REWARD_EVENT_DEFS.habit_prompt_completed.xp,
+      sourceKind: REWARD_EVENT_DEFS.habit_prompt_completed.sourceKind,
+      sourceId: p.id,
+      createdAt: p.respondedAt ?? p.dueAt,
+    }));
+
+  const checkinEvents = checkins.map((c) => ({
+    userId: demoUserId,
+    eventType: "checkin_completed",
+    xp: REWARD_EVENT_DEFS.checkin_completed.xp,
+    sourceKind: REWARD_EVENT_DEFS.checkin_completed.sourceKind,
+    sourceId: c.id,
+    createdAt: c.createdAt,
+  }));
+
+  const earliest = (dates: Date[]) =>
+    dates.reduce((min, d) => (d < min ? d : min));
+  const firstSessionAt = earliest(sessionEvents.map((e) => e.createdAt));
+  const firstCheckinAt = earliest(checkinEvents.map((e) => e.createdAt));
+
+  const achievementEvents = [
+    {
+      userId: demoUserId,
+      eventType: "achievement_unlocked",
+      xp: ACHIEVEMENT_DEFS.first_session.xp,
+      sourceKind: REWARD_EVENT_DEFS.achievement_unlocked.sourceKind,
+      sourceId: "first_session",
+      createdAt: firstSessionAt,
+    },
+    {
+      userId: demoUserId,
+      eventType: "achievement_unlocked",
+      xp: ACHIEVEMENT_DEFS.first_checkin.xp,
+      sourceKind: REWARD_EVENT_DEFS.achievement_unlocked.sourceKind,
+      sourceId: "first_checkin",
+      createdAt: firstCheckinAt,
+    },
+  ];
+
+  await db
+    .insert(RewardEvent)
+    .values([
+      ...sessionEvents,
+      ...promptEvents,
+      ...checkinEvents,
+      ...achievementEvents,
+    ]);
+
+  await db.insert(UserAchievement).values([
+    {
+      userId: demoUserId,
+      achievementKey: "first_session",
+      unlockedAt: firstSessionAt,
+    },
+    {
+      userId: demoUserId,
+      achievementKey: "first_checkin",
+      unlockedAt: firstCheckinAt,
+    },
+  ]);
+
+  const today = chicagoToday();
+  await db.insert(Streak).values(
+    STREAK_KINDS.map((kind) => ({
+      userId: demoUserId,
+      kind,
+      current: DEMO_STREAKS[kind].current,
+      longest: DEMO_STREAKS[kind].longest,
+      lastActivityDate: today,
+    })),
+  );
 }
 
 async function seed() {
@@ -489,10 +643,18 @@ async function seed() {
   const sessionsByGame = await seedSessionTracking(demoUser.id);
 
   // --- Habit engine: demo user's habits + representative historical prompts
-  await seedHabitEngine(demoUser.id, sessionsByGame);
+  const prompts = await seedHabitEngine(demoUser.id, sessionsByGame);
 
   // --- Check-ins: demo user's daily + post_session check-in history ---
-  await seedCheckins(demoUser.id, sessionsByGame);
+  const checkins = await seedCheckins(demoUser.id, sessionsByGame);
+
+  // --- Gamification: XP ledger + streaks + achievement unlocks ---
+  await seedGamification(
+    demoUser.id,
+    Array.from(sessionsByGame.values()),
+    prompts,
+    checkins,
+  );
 
   console.log("Seed complete.");
 }
