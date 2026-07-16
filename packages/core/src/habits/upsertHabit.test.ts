@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { ServiceCtx } from "../ctx";
-import { upsertHabit } from "./upsertHabit";
 import type { HabitRow } from "./upsertHabit";
+import { upsertHabit } from "./upsertHabit";
 
 function makeHabitRow(overrides: Partial<HabitRow> = {}): HabitRow {
   return {
@@ -62,7 +62,10 @@ describe("upsertHabit", () => {
       config: { bedtime: string; leadMinutes: number };
     };
     // bedtime comes from the default; leadMinutes is the caller's override.
-    expect(insertedValues.config).toEqual({ bedtime: "23:00", leadMinutes: 30 });
+    expect(insertedValues.config).toEqual({
+      bedtime: "23:00",
+      leadMinutes: 30,
+    });
   });
 
   it("upserts on the (userId, kind) unique index", async () => {

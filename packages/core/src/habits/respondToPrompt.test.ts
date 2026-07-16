@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ServiceCtx } from "../ctx";
-import type { HabitRow } from "./upsertHabit";
 import type { HabitPromptRow } from "./respondToPrompt";
+import type { HabitRow } from "./upsertHabit";
 
 const recordRewardEvent = vi.fn().mockResolvedValue({ recorded: true });
 vi.mock("../gamification/events", () => ({
@@ -55,9 +55,7 @@ function makeCtx(options: {
   const findFirst = vi.fn().mockResolvedValue(options.found);
   const returning = vi
     .fn()
-    .mockResolvedValue(
-      options.updated ?? [makePromptRow({ status: "done" })],
-    );
+    .mockResolvedValue(options.updated ?? [makePromptRow({ status: "done" })]);
   const where = vi.fn().mockReturnValue({ returning });
   const set = vi.fn().mockReturnValue({ where });
   const update = vi.fn().mockReturnValue({ set });
@@ -89,7 +87,10 @@ describe("respondToPrompt", () => {
   });
 
   it("throws CoreError(CONFLICT) when the prompt isn't pending", async () => {
-    const found = { ...makePromptRow({ status: "done" }), habit: makeHabitRow() };
+    const found = {
+      ...makePromptRow({ status: "done" }),
+      habit: makeHabitRow(),
+    };
     const { ctx } = makeCtx({ userId: "user_1", found });
     await expect(
       respondToPrompt(ctx, { promptId: "prompt_1", response: "done" }),
@@ -112,8 +113,9 @@ describe("respondToPrompt", () => {
     });
 
     expect(result).toBe(updated);
-    const setArg = (update.mock.results[0]?.value as { set: ReturnType<typeof vi.fn> })
-      .set.mock.calls[0]?.[0] as { status: string; respondedAt: Date };
+    const setArg = (
+      update.mock.results[0]?.value as { set: ReturnType<typeof vi.fn> }
+    ).set.mock.calls[0]?.[0] as { status: string; respondedAt: Date };
     expect(setArg.status).toBe("done");
     expect(setArg.respondedAt).toBeInstanceOf(Date);
 
@@ -131,7 +133,10 @@ describe("respondToPrompt", () => {
   it("marks skipped without emitting a reward event", async () => {
     const habit = makeHabitRow();
     const found = { ...makePromptRow(), habit };
-    const updated = makePromptRow({ status: "skipped", respondedAt: new Date() });
+    const updated = makePromptRow({
+      status: "skipped",
+      respondedAt: new Date(),
+    });
     const { ctx } = makeCtx({ userId: "user_1", found, updated: [updated] });
 
     const result = await respondToPrompt(ctx, {

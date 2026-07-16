@@ -21,3 +21,13 @@ export class CoreError extends Error {
     this.name = "CoreError";
   }
 }
+
+/** Postgres unique-violation (23505), possibly wrapped by drizzle. */
+export function isUniqueViolation(err: unknown): boolean {
+  for (let e = err; e instanceof Error; e = e.cause) {
+    if ("code" in e && (e as { code?: unknown }).code === "23505") {
+      return true;
+    }
+  }
+  return false;
+}

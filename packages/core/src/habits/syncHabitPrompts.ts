@@ -4,12 +4,12 @@ import { and, eq, inArray, isNull } from "@gamer-health/db";
 import { GameSession, Habit, HabitPrompt } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
-import { addMinutes, localDateString, zonedTimeToUtc } from "../lib/dates";
+import type { HabitPromptRow } from "./respondToPrompt";
+import type { HabitRow } from "./upsertHabit";
 import { requireUserId } from "../lib/auth";
+import { addMinutes, localDateString, zonedTimeToUtc } from "../lib/dates";
 import { getOrCreateProfile } from "../profile/getOrCreateProfile";
 import { HABIT_DEFINITIONS } from "./definitions";
-import type { HabitRow } from "./upsertHabit";
-import type { HabitPromptRow } from "./respondToPrompt";
 
 export const syncHabitPromptsInput = z.object({
   /** Injectable for tests only; defaults to the real current time. */
@@ -96,7 +96,10 @@ export async function syncHabitPrompts(
       const leadMinutes =
         habit.config.leadMinutes ?? def.defaultConfig.leadMinutes;
       if (!bedtime || leadMinutes == null) continue;
-      const dueAt = addMinutes(zonedTimeToUtc(today, bedtime, tz), -leadMinutes);
+      const dueAt = addMinutes(
+        zonedTimeToUtc(today, bedtime, tz),
+        -leadMinutes,
+      );
       if (dueAt.getTime() <= now.getTime()) {
         candidates.push({ habitId: habit.id, userId, sessionId: null, dueAt });
       }
@@ -110,7 +113,10 @@ export async function syncHabitPrompts(
   // Load all pending prompts (joined) once — used both to compute expiry and
   // to build the final list, avoiding a third round trip.
   const pendingRows = await ctx.db.query.HabitPrompt.findMany({
-    where: and(eq(HabitPrompt.userId, userId), eq(HabitPrompt.status, "pending")),
+    where: and(
+      eq(HabitPrompt.userId, userId),
+      eq(HabitPrompt.status, "pending"),
+    ),
     with: { habit: true, session: true },
   });
 
@@ -120,8 +126,7 @@ export async function syncHabitPrompts(
     const def = HABIT_DEFINITIONS[habit.kind];
 
     const sessionEnded =
-      habit.triggerType === "session_interval" &&
-      row.session?.endedAt != null;
+      habit.triggerType === "session_interval" && row.session?.endedAt != null;
 
     const pastBedtime =
       habit.kind === "bedtime_cutoff" &&
@@ -152,7 +157,8 @@ export async function syncHabitPrompts(
   const expiredIdSet = new Set(expiredIds);
   const pending: PendingHabitPrompt[] = pendingRows
     .filter(
-      (row) => !expiredIdSet.has(row.id) && row.dueAt.getTime() <= now.getTime(),
+      (row) =>
+        !expiredIdSet.has(row.id) && row.dueAt.getTime() <= now.getTime(),
     )
     .sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
     .map((row) => ({

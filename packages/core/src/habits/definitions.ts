@@ -36,7 +36,8 @@ export const HABIT_DEFINITIONS: Record<HabitKind, HabitDefinition> = {
   },
   stretch: {
     title: "Stretch Reminder",
-    description: "Standing and stretching keeps your body loose during long sessions.",
+    description:
+      "Standing and stretching keeps your body loose during long sessions.",
     promptText: "Stand up and stretch",
     triggerType: "session_interval",
     defaultConfig: { intervalMinutes: 60 },

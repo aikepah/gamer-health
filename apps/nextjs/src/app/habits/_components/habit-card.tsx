@@ -24,9 +24,7 @@ export function HabitCard({ item }: { item: HabitItem }) {
   );
   const [timeOfDay, setTimeOfDay] = useState(item.config.timeOfDay ?? "17:00");
   const [bedtime, setBedtime] = useState(item.config.bedtime ?? "23:00");
-  const [leadMinutes, setLeadMinutes] = useState(
-    item.config.leadMinutes ?? 60,
-  );
+  const [leadMinutes, setLeadMinutes] = useState(item.config.leadMinutes ?? 60);
 
   const upsert = useMutation(
     trpc.habit.upsert.mutationOptions({

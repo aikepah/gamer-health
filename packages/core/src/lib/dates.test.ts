@@ -18,9 +18,9 @@ describe("localDateString", () => {
 
   it("rolls forward to the next local day east of UTC", () => {
     // 2026-07-15T23:30:00Z is 2026-07-16T08:30 in Asia/Tokyo (UTC+9).
-    expect(localDateString(new Date("2026-07-15T23:30:00Z"), "Asia/Tokyo")).toBe(
-      "2026-07-16",
-    );
+    expect(
+      localDateString(new Date("2026-07-15T23:30:00Z"), "Asia/Tokyo"),
+    ).toBe("2026-07-16");
   });
 
   it("is stable across the US spring-forward DST boundary", () => {

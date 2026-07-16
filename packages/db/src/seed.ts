@@ -13,6 +13,7 @@ import { eq } from "drizzle-orm";
 
 import { db } from "./client";
 import {
+  Checkin,
   Game,
   GameSession,
   Habit,
@@ -292,8 +293,14 @@ async function seedHabitEngine(
   }
 
   const minutes = (n: number) => n * 60_000;
-  function respondedAtFor(status: SeedPromptStatus, dueAt: Date, offsetMinutes: number) {
-    return status === "expired" ? null : new Date(dueAt.getTime() + minutes(offsetMinutes));
+  function respondedAtFor(
+    status: SeedPromptStatus,
+    dueAt: Date,
+    offsetMinutes: number,
+  ) {
+    return status === "expired"
+      ? null
+      : new Date(dueAt.getTime() + minutes(offsetMinutes));
   }
 
   interface SeedHabitPrompt {
@@ -357,6 +364,115 @@ async function seedHabitEngine(
   await db.insert(HabitPrompt).values(prompts);
 }
 
+// --- Check-ins: demo user's daily + post_session history. None dated today
+// so the home page's "Daily check-in" card is visible from a fresh seed. ---
+
+interface SeedDailyCheckin {
+  /** Whole days before "now" (local America/Chicago date). */
+  daysAgo: number;
+  mood: number;
+  energy?: number;
+  sleepQuality?: number;
+  note?: string;
+  hour?: number;
+}
+
+// 9 daily check-ins over the last 14 days (never daysAgo: 0 — see above),
+// varying mood/energy/sleepQuality, with a couple of notes.
+const DEMO_DAILY_CHECKINS: SeedDailyCheckin[] = [
+  {
+    daysAgo: 13,
+    mood: 2,
+    energy: 2,
+    sleepQuality: 2,
+    note: "Rough day, low energy.",
+    hour: 9,
+  },
+  { daysAgo: 12, mood: 3, energy: 3, sleepQuality: 3, hour: 9 },
+  { daysAgo: 11, mood: 4, energy: 3, sleepQuality: 4, hour: 8 },
+  { daysAgo: 10, mood: 3, energy: 4, sleepQuality: 3, hour: 9 },
+  { daysAgo: 9, mood: 4, energy: 4, sleepQuality: 4, hour: 8 },
+  {
+    daysAgo: 7,
+    mood: 5,
+    energy: 5,
+    sleepQuality: 5,
+    note: "Felt great after a full night's sleep!",
+    hour: 8,
+  },
+  { daysAgo: 6, mood: 4, energy: 3, sleepQuality: 4, hour: 9 },
+  { daysAgo: 4, mood: 3, energy: 2, sleepQuality: 3, hour: 9 },
+  { daysAgo: 3, mood: 4, energy: 4, sleepQuality: 4, hour: 8 },
+];
+
+interface SeedPostSessionCheckin {
+  game: (typeof CATALOG_GAMES)[number]["name"];
+  mood: number;
+  energy?: number;
+  note?: string;
+}
+
+// 3 post_session check-ins linked to seeded sessions, mood loosely inversely
+// correlated with session length (longer session -> more fatigue) for an
+// interesting dashboard playtime-vs-mood chart later.
+const DEMO_POST_SESSION_CHECKINS: SeedPostSessionCheckin[] = [
+  {
+    game: "Rocket League", // 45min session
+    mood: 5,
+    energy: 4,
+    note: "Quick match, felt sharp.",
+  },
+  {
+    game: "Hades II", // 150min session
+    mood: 3,
+    energy: 2,
+  },
+  {
+    game: "Baldur's Gate 3", // 180min session
+    mood: 2,
+    energy: 2,
+    note: "Long session, pretty drained.",
+  },
+];
+
+async function seedCheckins(
+  demoUserId: string,
+  sessionsByGame: Map<string, SeedGameSession>,
+) {
+  // Idempotency: wipe the demo user's check-ins and re-insert deterministically.
+  await db.delete(Checkin).where(eq(Checkin.userId, demoUserId));
+
+  const dailyRows = DEMO_DAILY_CHECKINS.map((c) => ({
+    userId: demoUserId,
+    context: "daily" as const,
+    sessionId: null,
+    mood: c.mood,
+    energy: c.energy ?? null,
+    sleepQuality: c.sleepQuality ?? null,
+    note: c.note ?? null,
+    createdAt: chicagoLocal(c.daysAgo, c.hour ?? 9, 0),
+  }));
+
+  const postSessionRows = DEMO_POST_SESSION_CHECKINS.map((c) => {
+    const session = sessionsByGame.get(c.game);
+    if (!session?.endedAt) {
+      throw new Error(`Seed session not found for check-in: ${c.game}`);
+    }
+    return {
+      userId: demoUserId,
+      context: "post_session" as const,
+      sessionId: session.id,
+      mood: c.mood,
+      energy: c.energy ?? null,
+      sleepQuality: null,
+      note: c.note ?? null,
+      createdAt: new Date(session.endedAt.getTime() + 5 * 60_000),
+    };
+  });
+
+  await db.insert(Checkin).values([...dailyRows, ...postSessionRows]);
+}
+
 async function seed() {
   // --- Demo posts (template placeholder; remove with the posts feature) ---
   await db.delete(Post);
@@ -374,6 +490,9 @@ async function seed() {
 
   // --- Habit engine: demo user's habits + representative historical prompts
   await seedHabitEngine(demoUser.id, sessionsByGame);
+
+  // --- Check-ins: demo user's daily + post_session check-in history ---
+  await seedCheckins(demoUser.id, sessionsByGame);
 
   console.log("Seed complete.");
 }

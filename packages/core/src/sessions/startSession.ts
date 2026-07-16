@@ -5,19 +5,9 @@ import { GameSession } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
 import { requireUserId } from "../lib/auth";
-import { CoreError } from "../lib/errors";
+import { CoreError, isUniqueViolation } from "../lib/errors";
 
 export type GameSessionRow = typeof GameSession.$inferSelect;
-
-/** Postgres unique-violation (23505), possibly wrapped by drizzle. */
-function isUniqueViolation(err: unknown): boolean {
-  for (let e = err; e instanceof Error; e = e.cause) {
-    if ("code" in e && (e as { code?: unknown }).code === "23505") {
-      return true;
-    }
-  }
-  return false;
-}
 
 export const startSessionInput = z.object({
   gameId: z.uuid(),

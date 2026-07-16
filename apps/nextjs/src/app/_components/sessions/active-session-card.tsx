@@ -11,6 +11,7 @@ import { Button } from "@gamer-health/ui/button";
 import { toast } from "@gamer-health/ui/toast";
 
 import type { PickedGame } from "./game-picker";
+import { CheckinDialog } from "~/app/_components/checkins/checkin-dialog";
 import { formatElapsedClock } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 import { GamePicker } from "./game-picker";
@@ -19,11 +20,9 @@ import { GamePicker } from "./game-picker";
  * Home page card: shows the caller's active session with a live elapsed
  * timer, or a game picker + Start button when none is active.
  *
- * Integration point for the checkins feature: when it lands, its
- * `CheckinDialog` should be opened here (`{ context: "post_session",
- * sessionId }`) after a successful stop. Left as a plain comment seam rather
- * than a dynamic import to a module that doesn't exist yet, so this feature
- * builds and runs standalone.
+ * Stopping a session opens the check-ins feature's `CheckinDialog`
+ * pre-set to `context: "post_session"`, linked to the just-stopped session.
+ * Skipping the dialog is allowed and records nothing.
  */
 export function ActiveSessionCard() {
   const trpc = useTRPC();
@@ -34,6 +33,7 @@ export function ActiveSessionCard() {
 
   const [selectedGame, setSelectedGame] = useState<PickedGame | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [checkinSessionId, setCheckinSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -64,14 +64,26 @@ export function ActiveSessionCard() {
 
   const stopSession = useMutation(
     trpc.gameSession.stop.mutationOptions({
-      onSuccess: () => {
+      onSuccess: (stopped) => {
         toast.success("Session logged. +10 XP");
         invalidate();
+        setCheckinSessionId(stopped.id);
       },
       onError: (error) => {
         toast.error(error.message || "Failed to stop session");
       },
     }),
+  );
+
+  const checkinDialog = (
+    <CheckinDialog
+      context="post_session"
+      sessionId={checkinSessionId ?? undefined}
+      open={checkinSessionId !== null}
+      onOpenChange={(next) => {
+        if (!next) setCheckinSessionId(null);
+      }}
+    />
   );
 
   if (active) {
@@ -91,6 +103,7 @@ export function ActiveSessionCard() {
         >
           {stopSession.isPending ? "Stopping…" : "Stop session"}
         </Button>
+        {checkinDialog}
       </div>
     );
   }
@@ -108,6 +121,7 @@ export function ActiveSessionCard() {
       >
         {startSession.isPending ? "Starting…" : "Start"}
       </Button>
+      {checkinDialog}
     </div>
   );
 }

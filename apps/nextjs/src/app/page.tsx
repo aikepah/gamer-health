@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import { getSession } from "~/auth/server";
 import { HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { AuthShowcase } from "./_components/auth-showcase";
+import { CheckinHistory } from "./_components/checkins/checkin-history";
+import { DailyCheckinCard } from "./_components/checkins/daily-checkin-card";
 import { PromptTray } from "./_components/habits/prompt-tray";
 import {
   CreatePostForm,
@@ -38,6 +40,8 @@ export default async function HomePage() {
           )}
 
           {session && <PromptTray />}
+          {session && <DailyCheckinCard />}
+          {session && <CheckinHistory />}
 
           <CreatePostForm />
           <div className="w-full max-w-2xl overflow-y-scroll">

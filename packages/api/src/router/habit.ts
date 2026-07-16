@@ -17,9 +17,11 @@ export const habitRouter = {
     return listHabits(toServiceCtx(ctx));
   }),
 
-  upsert: protectedProcedure.input(upsertHabitInput).mutation(({ ctx, input }) => {
-    return upsertHabit(toServiceCtx(ctx), input);
-  }),
+  upsert: protectedProcedure
+    .input(upsertHabitInput)
+    .mutation(({ ctx, input }) => {
+      return upsertHabit(toServiceCtx(ctx), input);
+    }),
 
   // NOTE: this is a query with write side effects by design — it's the
   // generation-on-read engine (docs/features/habit-engine.md). There is no

@@ -1,11 +1,11 @@
+import type { HabitConfig } from "@gamer-health/db/schema";
 import { eq } from "@gamer-health/db";
 import { Habit } from "@gamer-health/db/schema";
-import type { HabitConfig } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
+import type { HabitKind } from "./definitions";
 import { requireUserId } from "../lib/auth";
 import { HABIT_DEFINITIONS, HABIT_KINDS } from "./definitions";
-import type { HabitKind } from "./definitions";
 
 export interface ListHabitsItem {
   kind: HabitKind;

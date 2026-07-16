@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ServiceCtx } from "../ctx";
 import type { GameSessionRow } from "../sessions/startSession";
-import type { HabitRow } from "./upsertHabit";
 import type { HabitPromptRow } from "./respondToPrompt";
+import type { HabitRow } from "./upsertHabit";
 import { syncHabitPrompts } from "./syncHabitPrompts";
 
 function makeHabitRow(overrides: Partial<HabitRow> = {}): HabitRow {
@@ -20,7 +20,9 @@ function makeHabitRow(overrides: Partial<HabitRow> = {}): HabitRow {
   };
 }
 
-function makeSessionRow(overrides: Partial<GameSessionRow> = {}): GameSessionRow {
+function makeSessionRow(
+  overrides: Partial<GameSessionRow> = {},
+): GameSessionRow {
   return {
     id: "session_1",
     userId: "user_1",
@@ -139,7 +141,9 @@ describe("syncHabitPrompts — generation", () => {
       config: { intervalMinutes: 50 },
     });
     // 125 minutes elapsed: k=1 (50m) and k=2 (100m) are due; k=3 (150m) is not.
-    const session = makeSessionRow({ startedAt: new Date("2026-07-15T08:00:00Z") });
+    const session = makeSessionRow({
+      startedAt: new Date("2026-07-15T08:00:00Z"),
+    });
     const now = new Date("2026-07-15T10:05:00Z");
 
     const { ctx, insertedBatches } = makeCtx({

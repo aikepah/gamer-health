@@ -19,10 +19,10 @@ function makeHabitRow(overrides: Partial<HabitRow> = {}): HabitRow {
   };
 }
 
-function makeCtx(options: {
-  userId: string | null;
-  rows?: HabitRow[];
-}): { ctx: ServiceCtx; findMany: ReturnType<typeof vi.fn> } {
+function makeCtx(options: { userId: string | null; rows?: HabitRow[] }): {
+  ctx: ServiceCtx;
+  findMany: ReturnType<typeof vi.fn>;
+} {
   const findMany = vi.fn().mockResolvedValue(options.rows ?? []);
   const db = { query: { Habit: { findMany } } } as unknown as ServiceCtx["db"];
   return { ctx: { db, userId: options.userId }, findMany };

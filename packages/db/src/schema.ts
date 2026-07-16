@@ -355,6 +355,11 @@ export const Checkin = pgTable(
   }),
   (table) => [
     index("checkin_user_created_idx").on(table.userId, table.createdAt.desc()),
+    // At most one post_session check-in per session (DB-enforced so
+    // concurrent/retried creates can't slip past the app-level guard).
+    uniqueIndex("checkin_one_per_session_idx")
+      .on(table.sessionId)
+      .where(sql`${table.context} = 'post_session'`),
     check("checkin_mood_range_check", sql`${table.mood} BETWEEN 1 AND 5`),
     check(
       "checkin_energy_range_check",

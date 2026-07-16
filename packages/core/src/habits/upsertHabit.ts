@@ -1,13 +1,13 @@
 import { z } from "zod/v4";
 
-import { Habit, HabitConfigSchema } from "@gamer-health/db/schema";
 import type { HabitConfig } from "@gamer-health/db/schema";
+import { Habit, HabitConfigSchema } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
+import type { HabitKind } from "./definitions";
 import { requireUserId } from "../lib/auth";
 import { CoreError } from "../lib/errors";
 import { HABIT_DEFINITIONS, habitKindSchema } from "./definitions";
-import type { HabitKind } from "./definitions";
 
 export const upsertHabitInput = z.object({
   kind: habitKindSchema,

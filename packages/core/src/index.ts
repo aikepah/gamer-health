@@ -1,4 +1,14 @@
 export type { ServiceCtx } from "./ctx";
+export type { CheckinRow } from "./checkins/dailyGuard";
+export { createCheckin, createCheckinInput } from "./checkins/createCheckin";
+export type { CreateCheckinInput } from "./checkins/createCheckin";
+export { getTodayCheckinStatus } from "./checkins/getTodayStatus";
+export type { TodayCheckinStatus } from "./checkins/getTodayStatus";
+export { listCheckins, listCheckinsInput } from "./checkins/listCheckins";
+export type {
+  ListCheckinsInput,
+  ListCheckinsResult,
+} from "./checkins/listCheckins";
 export {
   recordRewardEvent,
   recordRewardEventInput,
