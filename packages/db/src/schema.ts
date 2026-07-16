@@ -15,29 +15,6 @@ import { GAMING_PLATFORMS } from "@gamer-health/validators";
 import { user } from "./auth-schema";
 
 // ---------------------------------------------------------------------------
-// Template placeholder (kept for now; removed by a later cleanup task)
-// ---------------------------------------------------------------------------
-
-export const Post = pgTable("post", (t) => ({
-  id: t.uuid().notNull().primaryKey().defaultRandom(),
-  title: t.varchar({ length: 256 }).notNull(),
-  content: t.text().notNull(),
-  createdAt: t.timestamp().defaultNow().notNull(),
-  updatedAt: t
-    .timestamp({ mode: "date", withTimezone: true })
-    .$onUpdateFn(() => new Date()),
-}));
-
-export const CreatePostSchema = createInsertSchema(Post, {
-  title: z.string().max(256),
-  content: z.string().max(256),
-}).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-// ---------------------------------------------------------------------------
 // Enums
 // ---------------------------------------------------------------------------
 

@@ -11,7 +11,11 @@ import {
   YAxis,
 } from "recharts";
 
-import { formatDateLabel, formatDuration, formatMinutesAsHours } from "~/lib/format";
+import {
+  formatDateLabel,
+  formatDuration,
+  formatMinutesAsHours,
+} from "~/lib/format";
 import { useTRPC } from "~/trpc/react";
 import { ChartCard, ChartEmptyState, ChartSkeleton } from "./chart-card";
 

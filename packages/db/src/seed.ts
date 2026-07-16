@@ -25,7 +25,6 @@ import {
   GameSession,
   Habit,
   HabitPrompt,
-  Post,
   Profile,
   RewardEvent,
   Streak,
@@ -628,13 +627,6 @@ async function seedGamification(
 }
 
 async function seed() {
-  // --- Demo posts (template placeholder; remove with the posts feature) ---
-  await db.delete(Post);
-  await db.insert(Post).values([
-    { title: "Welcome to Gamer Health", content: "Seeded post #1" },
-    { title: "Log your first session", content: "Seeded post #2" },
-  ]);
-
   // --- Phase 1: demo user (via Better Auth API) + profile. Later feature
   // sections resolve the demo user id by selecting on DEMO_EMAIL. ---
   const demoUser = await seedDemoUser();

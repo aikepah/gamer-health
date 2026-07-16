@@ -24,9 +24,7 @@ import { ChartCard, ChartEmptyState, ChartSkeleton } from "./chart-card";
  */
 export function PlaytimeVsWellnessChart() {
   const trpc = useTRPC();
-  const { data } = useQuery(
-    trpc.dashboard.playtimeVsWellness.queryOptions({}),
-  );
+  const { data } = useQuery(trpc.dashboard.playtimeVsWellness.queryOptions({}));
 
   if (!data) {
     return (

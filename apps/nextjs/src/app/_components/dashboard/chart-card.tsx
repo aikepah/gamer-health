@@ -16,9 +16,7 @@ export function ChartCard({
   return (
     <div className="border-border bg-card rounded-lg border p-4">
       <p className="text-sm font-semibold">{title}</p>
-      {subtitle && (
-        <p className="text-muted-foreground text-xs">{subtitle}</p>
-      )}
+      {subtitle && <p className="text-muted-foreground text-xs">{subtitle}</p>}
       <div className="mt-3">{children}</div>
     </div>
   );
@@ -26,10 +24,7 @@ export function ChartCard({
 
 export function ChartSkeleton({ height = 220 }: { height?: number }) {
   return (
-    <div
-      className="bg-muted w-full animate-pulse rounded"
-      style={{ height }}
-    />
+    <div className="bg-muted w-full animate-pulse rounded" style={{ height }} />
   );
 }
 
