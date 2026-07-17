@@ -44,6 +44,8 @@ describe("updateProfile", () => {
       timezone: "America/Chicago",
       platforms: ["PC"],
       goals: "Stay healthy",
+      role: "player",
+      deactivatedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

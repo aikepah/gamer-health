@@ -12,6 +12,8 @@ function makeHabitRow(overrides: Partial<HabitRow> = {}): HabitRow {
     userId: "user_1",
     kind: "hydrate",
     triggerType: "session_interval",
+    definitionId: null,
+    assignedByUserId: null,
     enabled: true,
     config: {},
     createdAt: new Date(),

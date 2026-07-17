@@ -12,6 +12,14 @@ export const GAMING_PLATFORMS = [
 
 export type GamingPlatform = (typeof GAMING_PLATFORMS)[number];
 
+/**
+ * App-level authorization roles (docs/features/roles-authorization.md).
+ * Single source: the `user_role` pg enum in @gamer-health/db is built from
+ * this, and role Zod inputs / UI badges use it.
+ */
+export const USER_ROLES = ["player", "coach", "admin"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
 export * from "./gamification";
 
 export const unused = z.string().describe(

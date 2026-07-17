@@ -138,6 +138,38 @@ Once scaffolding is done, features are built as parallel, isolated units:
 
 ---
 
+## MVP 2 — Roles & Coaching
+
+Tracked as GitHub issues #4–#15 under milestone "MVP 2: Roles & Coaching"
+(issues are the requirements source of truth; specs in `docs/features/`
+reference them). **Delivery model: one PR per issue, branch per issue**,
+merged in dependency order; `/code-review` before each merge.
+
+**Wave 1 — foundation & admin (specs written, schema landed):**
+
+| Order | Issue | Spec | Notes |
+|---|---|---|---|
+| 1 | #4 roles & authorization | `roles-authorization.md` | Builds first; blocks everything. `assertCoachOf` ships deny-all until #11. |
+| 2 (parallel) | #5 admin user management | `admin-users.md` | Owns the shared `recordAdminAudit` helper. |
+| 2 (parallel) | #6 coach invitations | `admin-invitations.md` | Parallel-safe with #5/#8 in worktrees. |
+| 2 (parallel) | #8 habit generalization | `habit-generalization.md` | Migration-heavy; nothing habit-related in parallel. Destructive step scripted in-spec. |
+| 3 | #7 admin content management | `admin-content.md` | After #8 (habit definitions) and #5 (audit helper, seeded players). |
+
+Wave-1 schema is already in `packages/db/src/schema.ts`: `profile.role` +
+`profile.deactivatedAt`, `admin_audit_log`, `coach_invite`,
+`habit_definition`, transitional `habit.definition_id` /
+`habit.assigned_by_user_id` (finalized destructively by #8's PR per its
+spec), backfill script in `packages/db/src/migrations/`.
+
+**Wave 2 — coaching (issues read, schema anticipated, specs later):**
+#9 coach profiles → #10 discovery & application → #11 relationships &
+roster (activates the `assertCoachOf` gate) → #12 progress tracking
+(also needs #8), #13 goals, #14 habit assignment (also needs #8),
+#15 scheduling (also needs #9). Payments/subscriptions stay out of scope
+(#10 schema anticipates a gate only).
+
+---
+
 ## Verification
 
 - Per-feature: builder agents finish with `pnpm typecheck && pnpm lint && pnpm test` green; orchestrator runs `/verify` to drive the actual flow (e.g., log a session → habit prompt appears → complete it → XP increments → dashboard reflects it).
