@@ -56,6 +56,7 @@
     "AUTH_GOOGLE_SECRET",
     "AUTH_REDIRECT_PROXY_URL",
     "AUTH_SECRET",
+    "BOOTSTRAP_ADMIN_EMAIL",
     "PORT"
   ],
   "globalPassThroughEnv": [

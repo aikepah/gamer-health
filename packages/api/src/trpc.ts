@@ -12,7 +12,7 @@ import { z, ZodError } from "zod/v4";
 
 import type { Auth, Session } from "@gamer-health/auth";
 import type { ServiceCtx } from "@gamer-health/core";
-import { CoreError } from "@gamer-health/core";
+import { CoreError, getAuthz } from "@gamer-health/core";
 import { db } from "@gamer-health/db/client";
 
 /**
@@ -148,14 +148,48 @@ export const publicProcedure = t.procedure
  *
  * @see https://trpc.io/docs/procedures
  */
-export const protectedProcedure = publicProcedure.use(({ ctx, next }) => {
-  if (!ctx.session?.user) {
-    throw new TRPCError({ code: "UNAUTHORIZED" });
-  }
-  return next({
-    ctx: {
-      // infers the `session` as non-nullable
-      session: { ...ctx.session, user: ctx.session.user },
-    },
+export const protectedProcedure = publicProcedure
+  .use(({ ctx, next }) => {
+    if (!ctx.session?.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
+    return next({
+      ctx: {
+        // infers the `session` as non-nullable
+        session: { ...ctx.session, user: ctx.session.user },
+      },
+    });
+  })
+  .use(async ({ ctx, next }) => {
+    const authz = await getAuthz(toServiceCtx(ctx));
+    if (authz.deactivated) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Account deactivated",
+      });
+    }
+    return next({ ctx: { authz } });
   });
+
+/**
+ * Admin-only procedure. Rejects unauthenticated callers with UNAUTHORIZED
+ * (via `protectedProcedure`) and non-admins with FORBIDDEN. Admins never
+ * implicitly pass coach checks, nor vice versa.
+ */
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.authz.role !== "admin") {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next({ ctx });
+});
+
+/**
+ * Coach-only procedure. Rejects unauthenticated callers with UNAUTHORIZED
+ * and non-coaches (including admins) with FORBIDDEN.
+ */
+export const coachProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.authz.role !== "coach") {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next({ ctx });
 });

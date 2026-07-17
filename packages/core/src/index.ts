@@ -1,4 +1,8 @@
 export type { ServiceCtx } from "./ctx";
+export { assertCoachOf } from "./authz/assertCoachOf";
+export { getAuthz } from "./authz/getAuthz";
+export type { Authz } from "./authz/getAuthz";
+export { requireActiveUser, requireRole } from "./authz/requireRole";
 export type { CheckinRow } from "./checkins/dailyGuard";
 export { createCheckin, createCheckinInput } from "./checkins/createCheckin";
 export type { CreateCheckinInput } from "./checkins/createCheckin";

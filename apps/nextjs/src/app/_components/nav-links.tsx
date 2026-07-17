@@ -13,12 +13,16 @@ const LINKS = [
   { href: "/settings", label: "Settings" },
 ] as const;
 
-export function NavLinks() {
+/** Rendered only for admins — coach nav has no pages yet in wave 1 (#4). */
+const ADMIN_LINK = { href: "/admin", label: "Admin" } as const;
+
+export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin ? [...LINKS, ADMIN_LINK] : LINKS;
 
   return (
     <nav className="flex items-center gap-1 overflow-x-auto">
-      {LINKS.map(({ href, label }) => {
+      {links.map(({ href, label }) => {
         const active =
           href === "/" ? pathname === "/" : pathname.startsWith(href);
         return (

@@ -1,6 +1,10 @@
 import type { TRPCRouterRecord } from "@trpc/server";
 
-import { getOrCreateProfile, updateProfile } from "@gamer-health/core";
+import {
+  getAuthz,
+  getOrCreateProfile,
+  updateProfile,
+} from "@gamer-health/core";
 import { UpsertProfileSchema } from "@gamer-health/db/schema";
 
 import { protectedProcedure, toServiceCtx } from "../trpc";
@@ -8,6 +12,10 @@ import { protectedProcedure, toServiceCtx } from "../trpc";
 export const profileRouter = {
   get: protectedProcedure.query(({ ctx }) => {
     return getOrCreateProfile(toServiceCtx(ctx));
+  }),
+
+  authz: protectedProcedure.query(({ ctx }) => {
+    return getAuthz(toServiceCtx(ctx));
   }),
 
   update: protectedProcedure

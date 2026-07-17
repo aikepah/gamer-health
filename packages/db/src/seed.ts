@@ -36,6 +36,14 @@ export const DEMO_EMAIL = "demo@gamerhealth.dev";
 const DEMO_PASSWORD = "demo1234";
 const DEMO_NAME = "Demo Gamer";
 
+const DEMO_ADMIN_EMAIL = "admin@gamerhealth.dev";
+const DEMO_ADMIN_PASSWORD = "admin1234";
+const DEMO_ADMIN_NAME = "Demo Admin";
+
+const DEMO_COACH_EMAIL = "coach@gamerhealth.dev";
+const DEMO_COACH_PASSWORD = "coach1234";
+const DEMO_COACH_NAME = "Demo Coach";
+
 // Minimal local Better Auth instance for seeding only. We can't import
 // @gamer-health/auth here: it depends on @gamer-health/db, so importing it
 // from this package would create a workspace cycle.
@@ -73,6 +81,98 @@ async function seedDemoUser() {
     });
 
   return demoUser;
+}
+
+// --- Roles: demo admin + demo coach accounts, plus optional env-designated
+// admin bootstrap (docs/features/roles-authorization.md). ------------------
+
+async function seedRoleUser(
+  email: string,
+  password: string,
+  name: string,
+  role: "admin" | "coach",
+) {
+  const existing = await db.query.user.findFirst({
+    where: eq(user.email, email),
+  });
+
+  const roleUser =
+    existing ??
+    (
+      await auth.api.signUpEmail({
+        body: { email, password, name },
+      })
+    ).user;
+
+  await db
+    .insert(Profile)
+    .values({
+      userId: roleUser.id,
+      timezone: "America/Chicago",
+      platforms: [],
+      goals: null,
+      role,
+    })
+    .onConflictDoUpdate({
+      target: Profile.userId,
+      set: { role, timezone: "America/Chicago", platforms: [] },
+    });
+
+  return roleUser.id;
+}
+
+async function seedRoles() {
+  const adminId = await seedRoleUser(
+    DEMO_ADMIN_EMAIL,
+    DEMO_ADMIN_PASSWORD,
+    DEMO_ADMIN_NAME,
+    "admin",
+  );
+  const coachId = await seedRoleUser(
+    DEMO_COACH_EMAIL,
+    DEMO_COACH_PASSWORD,
+    DEMO_COACH_NAME,
+    "coach",
+  );
+  return { adminId, coachId };
+}
+
+/**
+ * Optional env-designated admin bootstrap: if `BOOTSTRAP_ADMIN_EMAIL` is set
+ * and a user with that email already exists, upsert that profile's role to
+ * `admin`. Does not create the user — this only elevates an existing account
+ * (e.g. the person running the seed against their own dev login).
+ */
+async function bootstrapAdminFromEnv() {
+  const email = process.env.BOOTSTRAP_ADMIN_EMAIL;
+  if (!email) {
+    return;
+  }
+
+  const existing = await db.query.user.findFirst({
+    where: eq(user.email, email),
+  });
+  if (!existing) {
+    console.log(
+      `BOOTSTRAP_ADMIN_EMAIL=${email} set but no matching user exists yet; skipping.`,
+    );
+    return;
+  }
+
+  await db
+    .insert(Profile)
+    .values({
+      userId: existing.id,
+      timezone: null,
+      platforms: [],
+      goals: null,
+      role: "admin",
+    })
+    .onConflictDoUpdate({
+      target: Profile.userId,
+      set: { role: "admin" },
+    });
+  console.log(`Bootstrapped admin role for ${email}.`);
 }
 
 // --- Session tracking: catalog + demo user's session history --------------
@@ -630,6 +730,10 @@ async function seed() {
   // --- Phase 1: demo user (via Better Auth API) + profile. Later feature
   // sections resolve the demo user id by selecting on DEMO_EMAIL. ---
   const demoUser = await seedDemoUser();
+
+  // --- Roles: demo admin + demo coach accounts (demo user stays a player) ---
+  await seedRoles();
+  await bootstrapAdminFromEnv();
 
   // --- Session tracking: catalog + demo user's session history ---
   const sessionsByGame = await seedSessionTracking(demoUser.id);

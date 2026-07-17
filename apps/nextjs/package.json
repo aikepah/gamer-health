@@ -15,6 +15,7 @@
   "dependencies": {
     "@gamer-health/api": "workspace:*",
     "@gamer-health/auth": "workspace:*",
+    "@gamer-health/core": "workspace:*",
     "@gamer-health/db": "workspace:*",
     "@gamer-health/ui": "workspace:*",
     "@gamer-health/validators": "workspace:*",
