@@ -11,6 +11,8 @@ function makeRow(userId: string): ProfileRow {
     timezone: null,
     platforms: [],
     goals: null,
+    role: "player",
+    deactivatedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
   };
