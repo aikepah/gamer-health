@@ -104,6 +104,9 @@ importers:
       '@gamer-health/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@gamer-health/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@gamer-health/db':
         specifier: workspace:*
         version: link:../../packages/db

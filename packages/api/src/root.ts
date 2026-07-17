@@ -1,3 +1,4 @@
+import { adminRouter } from "./router/admin";
 import { authRouter } from "./router/auth";
 import { checkinRouter } from "./router/checkin";
 import { dashboardRouter } from "./router/dashboard";
@@ -9,6 +10,7 @@ import { profileRouter } from "./router/profile";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
+  admin: adminRouter,
   auth: authRouter,
   checkin: checkinRouter,
   dashboard: dashboardRouter,

@@ -6,10 +6,12 @@ import { Button } from "@gamer-health/ui/button";
 import { ThemeToggle } from "@gamer-health/ui/theme";
 
 import { auth, getSession } from "~/auth/server";
+import { getServerAuthz } from "~/trpc/server";
 import { NavLinks } from "./nav-links";
 
 export async function AppNav() {
   const session = await getSession();
+  const authz = session ? await getServerAuthz() : null;
 
   return (
     <header className="bg-background/80 border-border sticky top-0 z-40 border-b backdrop-blur">
@@ -21,7 +23,7 @@ export async function AppNav() {
           Gamer <span className="text-primary">Health</span>
         </Link>
 
-        {session && <NavLinks />}
+        {session && <NavLinks isAdmin={authz?.role === "admin"} />}
 
         <div className="flex items-center gap-2">
           <ThemeToggle />

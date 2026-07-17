@@ -5,6 +5,7 @@ import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 
 import type { AppRouter } from "@gamer-health/api";
+import type { Authz } from "@gamer-health/core";
 import { appRouter, createTRPCContext } from "@gamer-health/api";
 
 import { auth } from "~/auth/server";
@@ -22,6 +23,24 @@ const createContext = cache(async () => {
     headers: heads,
     auth,
   });
+});
+
+/**
+ * Server-side `profile.authz` fetch for RSC nav/layout guards that need the
+ * result synchronously (not just prefetched for client hydration). Returns
+ * `null` for unauthenticated or rejected (e.g. deactivated) callers — treat
+ * `null` the same as "no access" rather than distinguishing the reason.
+ */
+export const getServerAuthz = cache(async (): Promise<Authz | null> => {
+  const ctx = await createContext();
+  if (!ctx.session?.user) {
+    return null;
+  }
+  try {
+    return await appRouter.createCaller(ctx).profile.authz();
+  } catch {
+    return null;
+  }
 });
 
 const getQueryClient = cache(createQueryClient);
