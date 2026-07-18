@@ -7,10 +7,12 @@
  * without manual setup. Keep inserts idempotent (delete-then-insert or
  * onConflictDoNothing) so the script can be re-run safely.
  */
+import { randomBytes } from "node:crypto";
+
 import { TZDate } from "@date-fns/tz";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import {
   ACHIEVEMENT_DEFS,
@@ -21,6 +23,7 @@ import {
 import { db } from "./client";
 import {
   Checkin,
+  CoachInvite,
   Game,
   GameSession,
   Habit,
@@ -135,6 +138,63 @@ async function seedRoles() {
     "coach",
   );
   return { adminId, coachId };
+}
+
+// --- Coach invites (#6): one row per derived status, so every accept-page
+// state (pending, expired, revoked, accepted) is reachable from a fresh seed.
+
+const SEED_INVITE_EMAILS = [
+  "pending-coach@gamerhealth.dev",
+  "expired-coach@gamerhealth.dev",
+  "revoked-coach@gamerhealth.dev",
+  DEMO_COACH_EMAIL,
+] as const;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+async function seedCoachInvites(adminId: string, coachId: string) {
+  // Idempotency: wipe and reinsert these four rows by email.
+  await db
+    .delete(CoachInvite)
+    .where(inArray(CoachInvite.email, [...SEED_INVITE_EMAILS]));
+
+  const now = Date.now();
+
+  await db.insert(CoachInvite).values([
+    {
+      // Fixed token: deterministic for tests/verification against a fresh seed.
+      email: "pending-coach@gamerhealth.dev",
+      token: "seed-pending-coach-invite-token",
+      invitedByUserId: adminId,
+      createdAt: new Date(now),
+      expiresAt: new Date(now + 14 * DAY_MS),
+    },
+    {
+      email: "expired-coach@gamerhealth.dev",
+      token: randomBytes(24).toString("base64url"),
+      invitedByUserId: adminId,
+      createdAt: new Date(now - 30 * DAY_MS),
+      expiresAt: new Date(now - 16 * DAY_MS),
+    },
+    {
+      email: "revoked-coach@gamerhealth.dev",
+      token: randomBytes(24).toString("base64url"),
+      invitedByUserId: adminId,
+      createdAt: new Date(now - 5 * DAY_MS),
+      expiresAt: new Date(now + 14 * DAY_MS),
+      revokedAt: new Date(now - 1 * DAY_MS),
+    },
+    {
+      // Ties the seeded coach's origin story together.
+      email: DEMO_COACH_EMAIL,
+      token: randomBytes(24).toString("base64url"),
+      invitedByUserId: adminId,
+      createdAt: new Date(now - 10 * DAY_MS),
+      expiresAt: new Date(now + 14 * DAY_MS),
+      acceptedAt: new Date(now - 7 * DAY_MS),
+      acceptedByUserId: coachId,
+    },
+  ]);
 }
 
 /**
@@ -732,8 +792,11 @@ async function seed() {
   const demoUser = await seedDemoUser();
 
   // --- Roles: demo admin + demo coach accounts (demo user stays a player) ---
-  await seedRoles();
+  const { adminId, coachId } = await seedRoles();
   await bootstrapAdminFromEnv();
+
+  // --- Coach invites (#6): pending/expired/revoked/accepted rows ---
+  await seedCoachInvites(adminId, coachId);
 
   // --- Session tracking: catalog + demo user's session history ---
   const sessionsByGame = await seedSessionTracking(demoUser.id);

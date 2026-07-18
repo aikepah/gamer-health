@@ -6,7 +6,12 @@ import { auth, getSession } from "~/auth/server";
 import { env } from "~/env";
 import { EmailAuthForm } from "./email-auth-form";
 
-export async function AuthShowcase() {
+export async function AuthShowcase({
+  redirectTo,
+}: {
+  /** Internal path to return to after auth (e.g. `/invite/<token>`). */
+  redirectTo?: string;
+} = {}) {
   const session = await getSession();
 
   if (!session) {
@@ -16,10 +21,11 @@ export async function AuthShowcase() {
     const googleConfigured = Boolean(
       env.AUTH_GOOGLE_ID && env.AUTH_GOOGLE_SECRET,
     );
+    const callbackURL = redirectTo ?? "/";
 
     return (
       <div className="flex w-full flex-col items-center gap-4">
-        <EmailAuthForm />
+        <EmailAuthForm redirectTo={redirectTo} />
 
         {discordConfigured && (
           <form>
@@ -31,7 +37,7 @@ export async function AuthShowcase() {
                 const res = await auth.api.signInSocial({
                   body: {
                     provider: "discord",
-                    callbackURL: "/",
+                    callbackURL,
                   },
                 });
                 if (!res.url) {
@@ -55,7 +61,7 @@ export async function AuthShowcase() {
                 const res = await auth.api.signInSocial({
                   body: {
                     provider: "google",
-                    callbackURL: "/",
+                    callbackURL,
                   },
                 });
                 if (!res.url) {

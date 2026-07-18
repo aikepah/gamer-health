@@ -29,6 +29,7 @@
     "@gamer-health/eslint-config": "workspace:*",
     "@gamer-health/prettier-config": "workspace:*",
     "@gamer-health/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",

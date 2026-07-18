@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 
-import type { AppRouter } from "@gamer-health/api";
+import type { AppRouter, RouterOutputs } from "@gamer-health/api";
 import type { Authz } from "@gamer-health/core";
 import { appRouter, createTRPCContext } from "@gamer-health/api";
 
@@ -42,6 +42,25 @@ export const getServerAuthz = cache(async (): Promise<Authz | null> => {
     return null;
   }
 });
+
+/**
+ * Server-side `invite.byToken` fetch for the public `/invite/[token]` page,
+ * which needs to branch synchronously on unknown-vs-known tokens rather than
+ * just prefetching for client hydration. Returns `null` for any unknown
+ * token (the only error `byToken` throws is `NOT_FOUND`).
+ */
+export const getInviteByToken = cache(
+  async (
+    token: string,
+  ): Promise<RouterOutputs["invite"]["byToken"] | null> => {
+    const ctx = await createContext();
+    try {
+      return await appRouter.createCaller(ctx).invite.byToken({ token });
+    } catch {
+      return null;
+    }
+  },
+);
 
 const getQueryClient = cache(createQueryClient);
 
