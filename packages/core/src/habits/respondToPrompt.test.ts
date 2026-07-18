@@ -72,7 +72,9 @@ function makePromptRow(
 
 function makeCtx(options: {
   userId: string | null;
-  found?: (HabitPromptRow & { habit: HabitRow & { definition: DefRow } }) | undefined;
+  found?:
+    | (HabitPromptRow & { habit: HabitRow & { definition: DefRow } })
+    | undefined;
   updated?: HabitPromptRow[];
 }): {
   ctx: ServiceCtx;

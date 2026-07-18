@@ -16,14 +16,54 @@ describe("aggregateHabitCompletion", () => {
 
   it("aggregates totals and per-habit done/total across definitions", () => {
     const result = aggregateHabitCompletion([
-      { definitionId: "def_break", title: "Break Reminder", status: "done", count: 1 },
-      { definitionId: "def_break", title: "Break Reminder", status: "skipped", count: 1 },
-      { definitionId: "def_break", title: "Break Reminder", status: "expired", count: 1 },
-      { definitionId: "def_hydrate", title: "Hydration Reminder", status: "done", count: 3 },
-      { definitionId: "def_hydrate", title: "Hydration Reminder", status: "skipped", count: 1 },
-      { definitionId: "def_hydrate", title: "Hydration Reminder", status: "expired", count: 2 },
-      { definitionId: "def_movement", title: "Daily Movement", status: "done", count: 1 },
-      { definitionId: "def_movement", title: "Daily Movement", status: "expired", count: 1 },
+      {
+        definitionId: "def_break",
+        title: "Break Reminder",
+        status: "done",
+        count: 1,
+      },
+      {
+        definitionId: "def_break",
+        title: "Break Reminder",
+        status: "skipped",
+        count: 1,
+      },
+      {
+        definitionId: "def_break",
+        title: "Break Reminder",
+        status: "expired",
+        count: 1,
+      },
+      {
+        definitionId: "def_hydrate",
+        title: "Hydration Reminder",
+        status: "done",
+        count: 3,
+      },
+      {
+        definitionId: "def_hydrate",
+        title: "Hydration Reminder",
+        status: "skipped",
+        count: 1,
+      },
+      {
+        definitionId: "def_hydrate",
+        title: "Hydration Reminder",
+        status: "expired",
+        count: 2,
+      },
+      {
+        definitionId: "def_movement",
+        title: "Daily Movement",
+        status: "done",
+        count: 1,
+      },
+      {
+        definitionId: "def_movement",
+        title: "Daily Movement",
+        status: "expired",
+        count: 1,
+      },
     ]);
 
     expect(result.done).toBe(5);
@@ -56,8 +96,18 @@ describe("aggregateHabitCompletion", () => {
 
   it("computes completionRate 0 when nothing is done", () => {
     const result = aggregateHabitCompletion([
-      { definitionId: "def_hydrate", title: "Hydration Reminder", status: "skipped", count: 2 },
-      { definitionId: "def_hydrate", title: "Hydration Reminder", status: "expired", count: 1 },
+      {
+        definitionId: "def_hydrate",
+        title: "Hydration Reminder",
+        status: "skipped",
+        count: 2,
+      },
+      {
+        definitionId: "def_hydrate",
+        title: "Hydration Reminder",
+        status: "expired",
+        count: 1,
+      },
     ]);
     expect(result.completionRate).toBe(0);
   });

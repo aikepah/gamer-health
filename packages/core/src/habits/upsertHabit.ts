@@ -2,7 +2,11 @@ import { z } from "zod/v4";
 
 import type { HabitConfig } from "@gamer-health/db/schema";
 import { and, eq } from "@gamer-health/db";
-import { Habit, HabitConfigSchema, HabitDefinition } from "@gamer-health/db/schema";
+import {
+  Habit,
+  HabitConfigSchema,
+  HabitDefinition,
+} from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
 import { requireUserId } from "../lib/auth";
