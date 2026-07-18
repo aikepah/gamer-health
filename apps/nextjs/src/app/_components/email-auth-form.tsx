@@ -9,7 +9,7 @@ import { Label } from "@gamer-health/ui/label";
 
 import { authClient } from "~/auth/client";
 
-export function EmailAuthForm() {
+export function EmailAuthForm({ redirectTo }: { redirectTo?: string } = {}) {
   const router = useRouter();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [name, setName] = useState("");
@@ -33,7 +33,11 @@ export function EmailAuthForm() {
       setError(result.error.message ?? "Something went wrong");
       return;
     }
-    router.refresh();
+    if (redirectTo) {
+      router.push(redirectTo);
+    } else {
+      router.refresh();
+    }
   }
 
   return (

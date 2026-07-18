@@ -7,6 +7,7 @@
  * without manual setup. Keep inserts idempotent (delete-then-insert or
  * onConflictDoNothing) so the script can be re-run safely.
  */
+import { randomBytes } from "node:crypto";
 import { TZDate } from "@date-fns/tz";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -21,7 +22,9 @@ import {
 
 import { db } from "./client";
 import {
+  AdminAuditLog,
   Checkin,
+  CoachInvite,
   Game,
   GameSession,
   Habit,
@@ -139,6 +142,63 @@ async function seedRoles() {
   return { adminId, coachId };
 }
 
+// --- Coach invites (#6): one row per derived status, so every accept-page
+// state (pending, expired, revoked, accepted) is reachable from a fresh seed.
+
+const SEED_INVITE_EMAILS = [
+  "pending-coach@gamerhealth.dev",
+  "expired-coach@gamerhealth.dev",
+  "revoked-coach@gamerhealth.dev",
+  DEMO_COACH_EMAIL,
+] as const;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+async function seedCoachInvites(adminId: string, coachId: string) {
+  // Idempotency: wipe and reinsert these four rows by email.
+  await db
+    .delete(CoachInvite)
+    .where(inArray(CoachInvite.email, [...SEED_INVITE_EMAILS]));
+
+  const now = Date.now();
+
+  await db.insert(CoachInvite).values([
+    {
+      // Fixed token: deterministic for tests/verification against a fresh seed.
+      email: "pending-coach@gamerhealth.dev",
+      token: "seed-pending-coach-invite-token",
+      invitedByUserId: adminId,
+      createdAt: new Date(now),
+      expiresAt: new Date(now + 14 * DAY_MS),
+    },
+    {
+      email: "expired-coach@gamerhealth.dev",
+      token: randomBytes(24).toString("base64url"),
+      invitedByUserId: adminId,
+      createdAt: new Date(now - 30 * DAY_MS),
+      expiresAt: new Date(now - 16 * DAY_MS),
+    },
+    {
+      email: "revoked-coach@gamerhealth.dev",
+      token: randomBytes(24).toString("base64url"),
+      invitedByUserId: adminId,
+      createdAt: new Date(now - 5 * DAY_MS),
+      expiresAt: new Date(now + 14 * DAY_MS),
+      revokedAt: new Date(now - 1 * DAY_MS),
+    },
+    {
+      // Ties the seeded coach's origin story together.
+      email: DEMO_COACH_EMAIL,
+      token: randomBytes(24).toString("base64url"),
+      invitedByUserId: adminId,
+      createdAt: new Date(now - 10 * DAY_MS),
+      expiresAt: new Date(now + 14 * DAY_MS),
+      acceptedAt: new Date(now - 7 * DAY_MS),
+      acceptedByUserId: coachId,
+    },
+  ]);
+}
+
 /**
  * Optional env-designated admin bootstrap: if `BOOTSTRAP_ADMIN_EMAIL` is set
  * and a user with that email already exists, upsert that profile's role to
@@ -175,6 +235,94 @@ async function bootstrapAdminFromEnv() {
       set: { role: "admin" },
     });
   console.log(`Bootstrapped admin role for ${email}.`);
+}
+
+// --- Admin user management (#5): extra players (one deactivated) + a couple
+// of admin audit log rows, so `/admin/users` has more than one row and its
+// "Recent admin activity" panel is populated from a fresh seed. ------------
+
+const PLAYER1_EMAIL = "player1@gamerhealth.dev";
+const PLAYER1_NAME = "Riley Chen";
+const PLAYER2_EMAIL = "player2@gamerhealth.dev";
+const PLAYER2_NAME = "Sam Okafor";
+const PLAYER3_EMAIL = "player3@gamerhealth.dev";
+const PLAYER3_NAME = "Jordan Blake";
+const EXTRA_PLAYER_PASSWORD = "demo1234";
+
+async function seedExtraPlayer(
+  email: string,
+  name: string,
+  deactivatedAt: Date | null,
+) {
+  const existing = await db.query.user.findFirst({
+    where: eq(user.email, email),
+  });
+
+  const playerUser =
+    existing ??
+    (
+      await auth.api.signUpEmail({
+        body: { email, password: EXTRA_PLAYER_PASSWORD, name },
+      })
+    ).user;
+
+  await db
+    .insert(Profile)
+    .values({
+      userId: playerUser.id,
+      timezone: "America/Chicago",
+      platforms: [],
+      goals: null,
+      role: "player",
+      deactivatedAt,
+    })
+    .onConflictDoUpdate({
+      target: Profile.userId,
+      set: { role: "player", deactivatedAt },
+    });
+
+  return playerUser.id;
+}
+
+async function seedExtraPlayers() {
+  const player1Id = await seedExtraPlayer(PLAYER1_EMAIL, PLAYER1_NAME, null);
+  const player2Id = await seedExtraPlayer(PLAYER2_EMAIL, PLAYER2_NAME, null);
+  const player3Id = await seedExtraPlayer(
+    PLAYER3_EMAIL,
+    PLAYER3_NAME,
+    chicagoLocal(2, 9, 0),
+  );
+  return { player1Id, player2Id, player3Id };
+}
+
+/**
+ * One `role_change` (demo coach player -> coach) and one `user_deactivate`
+ * (player3), both authored by the demo admin. Idempotency: wipe rows authored
+ * by the demo admin and re-insert deterministically.
+ */
+async function seedAdminAuditLog(
+  adminId: string,
+  coachId: string,
+  player3Id: string,
+) {
+  await db.delete(AdminAuditLog).where(eq(AdminAuditLog.actorUserId, adminId));
+
+  await db.insert(AdminAuditLog).values([
+    {
+      actorUserId: adminId,
+      targetUserId: coachId,
+      action: "role_change",
+      meta: { from: "player", to: "coach" },
+      createdAt: chicagoLocal(5, 9, 0),
+    },
+    {
+      actorUserId: adminId,
+      targetUserId: player3Id,
+      action: "user_deactivate",
+      meta: {},
+      createdAt: chicagoLocal(2, 9, 0),
+    },
+  ]);
 }
 
 // --- Session tracking: catalog + demo user's session history --------------
@@ -771,11 +919,17 @@ async function seed() {
   const demoUser = await seedDemoUser();
 
   // --- Roles: demo admin + demo coach accounts (demo user stays a player) ---
-  await seedRoles();
+  const { adminId, coachId } = await seedRoles();
   await bootstrapAdminFromEnv();
 
   // --- Habit catalog: built-in habit definitions (upsert by slug) ---
   const definitionIdBySlug = await seedHabitDefinitions();
+  // --- Coach invites (#6): pending/expired/revoked/accepted rows ---
+  await seedCoachInvites(adminId, coachId);
+
+  // --- Admin user management (#5): extra players + admin audit log rows ---
+  const { player3Id } = await seedExtraPlayers();
+  await seedAdminAuditLog(adminId, coachId, player3Id);
 
   // --- Session tracking: catalog + demo user's session history ---
   const sessionsByGame = await seedSessionTracking(demoUser.id);
