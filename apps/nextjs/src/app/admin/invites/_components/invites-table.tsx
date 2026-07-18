@@ -1,6 +1,10 @@
 "use client";
 
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueryClient,
+  useSuspenseQuery,
+} from "@tanstack/react-query";
 
 import type { RouterOutputs } from "@gamer-health/api";
 import { cn } from "@gamer-health/ui";
@@ -67,9 +71,7 @@ export function InvitesTable() {
   }
 
   if (invites.length === 0) {
-    return (
-      <p className="text-muted-foreground text-sm">No invites yet.</p>
-    );
+    return <p className="text-muted-foreground text-sm">No invites yet.</p>;
   }
 
   return (
@@ -87,7 +89,10 @@ export function InvitesTable() {
         </thead>
         <tbody>
           {invites.map((invite) => (
-            <tr key={invite.id} className="border-border border-b last:border-0">
+            <tr
+              key={invite.id}
+              className="border-border border-b last:border-0"
+            >
               <td className="px-4 py-2">{invite.email}</td>
               <td className="px-4 py-2">
                 <StatusBadge status={invite.status} />

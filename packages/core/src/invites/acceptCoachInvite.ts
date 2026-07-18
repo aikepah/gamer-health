@@ -5,10 +5,10 @@ import { and, eq, isNull } from "@gamer-health/db";
 import { CoachInvite, Profile, user } from "@gamer-health/db/schema";
 
 import type { ServiceCtx, TxDb } from "../ctx";
+import type { CoachInviteStatus } from "./status";
 import { recordAdminAudit } from "../admin/audit";
 import { requireActiveUser } from "../authz/requireRole";
 import { CoreError } from "../lib/errors";
-import type { CoachInviteStatus } from "./status";
 import { coachInviteStatus } from "./status";
 
 export const acceptCoachInviteInput = z.object({
@@ -83,10 +83,7 @@ export async function acceptCoachInvite(
       )
       .returning();
     if (!accepted) {
-      throw new CoreError(
-        "CONFLICT",
-        "This invite has already been resolved",
-      );
+      throw new CoreError("CONFLICT", "This invite has already been resolved");
     }
 
     const currentProfile = await tx.query.Profile.findFirst({

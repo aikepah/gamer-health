@@ -45,8 +45,8 @@ export function InviteAcceptCard({
     return (
       <Card title="Invite not found">
         <p className="text-muted-foreground text-sm">
-          This invite link isn't valid. Ask the admin who sent it to check
-          the link, or send a new one.
+          This invite link isn't valid. Ask the admin who sent it to check the
+          link, or send a new one.
         </p>
       </Card>
     );
@@ -92,8 +92,8 @@ export function InviteAcceptCard({
     return (
       <Card title="You've been invited to coach">
         <p className="text-muted-foreground mb-4 text-sm">
-          Sign in or create an account with <strong>{invite.email}</strong>{" "}
-          to accept.
+          Sign in or create an account with <strong>{invite.email}</strong> to
+          accept.
         </p>
         <Button asChild>
           <Link href={`/?redirect=${redirectTo}`}>Sign in / sign up</Link>
@@ -106,9 +106,9 @@ export function InviteAcceptCard({
     return (
       <Card title="Wrong account">
         <p className="text-muted-foreground mb-4 text-sm">
-          This invite is for <strong>{invite.email}</strong>, but you're
-          signed in as {sessionUser.email}. Sign out and sign back in with
-          the invited email to accept.
+          This invite is for <strong>{invite.email}</strong>, but you're signed
+          in as {sessionUser.email}. Sign out and sign back in with the invited
+          email to accept.
         </p>
         <Button type="button" variant="outline" onClick={handleSignOut}>
           Sign out

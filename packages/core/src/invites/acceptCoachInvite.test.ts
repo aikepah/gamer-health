@@ -1,13 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { CoachInvite} from "@gamer-health/db/schema";
+import type { CoachInvite } from "@gamer-health/db/schema";
 import { AdminAuditLog, Profile } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
 import { acceptCoachInvite } from "./acceptCoachInvite";
 
 type InviteRow = typeof CoachInvite.$inferSelect;
-interface ProfileLite { role: "player" | "coach" | "admin"; deactivatedAt: Date | null }
+interface ProfileLite {
+  role: "player" | "coach" | "admin";
+  deactivatedAt: Date | null;
+}
 
 function makeInvite(overrides: Partial<InviteRow> = {}): InviteRow {
   return {

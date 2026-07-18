@@ -50,9 +50,7 @@ export const getServerAuthz = cache(async (): Promise<Authz | null> => {
  * token (the only error `byToken` throws is `NOT_FOUND`).
  */
 export const getInviteByToken = cache(
-  async (
-    token: string,
-  ): Promise<RouterOutputs["invite"]["byToken"] | null> => {
+  async (token: string): Promise<RouterOutputs["invite"]["byToken"] | null> => {
     const ctx = await createContext();
     try {
       return await appRouter.createCaller(ctx).invite.byToken({ token });

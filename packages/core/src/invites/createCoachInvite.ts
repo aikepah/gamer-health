@@ -1,5 +1,4 @@
 import { randomBytes } from "node:crypto";
-
 import { z } from "zod/v4";
 
 import { eq, sql } from "@gamer-health/db";

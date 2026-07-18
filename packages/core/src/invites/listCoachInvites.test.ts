@@ -54,12 +54,18 @@ describe("listCoachInvites", () => {
     ]);
     const result = await listCoachInvites(ctx, {});
     expect(result).toHaveLength(2);
-    expect(result[0]).toMatchObject({ id: "invite_pending", status: "pending" });
+    expect(result[0]).toMatchObject({
+      id: "invite_pending",
+      status: "pending",
+    });
     expect(result[0]?.invitedBy).toEqual({
       userId: "admin_1",
       name: "Demo Admin",
     });
-    expect(result[1]).toMatchObject({ id: "invite_revoked", status: "revoked" });
+    expect(result[1]).toMatchObject({
+      id: "invite_revoked",
+      status: "revoked",
+    });
   });
 
   it("filters by the derived status when given", async () => {

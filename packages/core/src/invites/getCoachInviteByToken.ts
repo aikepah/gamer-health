@@ -4,8 +4,8 @@ import { eq } from "@gamer-health/db";
 import { CoachInvite } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
-import { CoreError } from "../lib/errors";
 import type { CoachInviteStatus } from "./status";
+import { CoreError } from "../lib/errors";
 import { coachInviteStatus } from "./status";
 
 export const getCoachInviteByTokenInput = z.object({

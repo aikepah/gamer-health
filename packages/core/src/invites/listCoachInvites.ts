@@ -4,8 +4,8 @@ import { desc } from "@gamer-health/db";
 import { CoachInvite } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
-import { requireRole } from "../authz/requireRole";
 import type { CoachInviteStatus } from "./status";
+import { requireRole } from "../authz/requireRole";
 import { coachInviteStatus } from "./status";
 
 export const listCoachInvitesInput = z.object({

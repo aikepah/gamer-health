@@ -24,7 +24,10 @@ function makeInvite(overrides: Partial<InviteRow> = {}): InviteRow {
 }
 
 function makeCtx(options: {
-  callerProfile?: { role: "player" | "coach" | "admin"; deactivatedAt: Date | null };
+  callerProfile?: {
+    role: "player" | "coach" | "admin";
+    deactivatedAt: Date | null;
+  };
   invite?: InviteRow | undefined;
   updateReturning?: InviteRow[];
 }) {

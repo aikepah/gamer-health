@@ -14,7 +14,11 @@ function makeCtx(options: {
   callerProfile: CallerProfile | undefined;
   existingUser?: { id: string } | undefined;
   targetProfile?: CallerProfile | undefined;
-  existingInvites?: { revokedAt: Date | null; acceptedAt: Date | null; expiresAt: Date }[];
+  existingInvites?: {
+    revokedAt: Date | null;
+    acceptedAt: Date | null;
+    expiresAt: Date;
+  }[];
   insertReturning?: (typeof CoachInvite.$inferSelect)[];
 }) {
   const profileFindFirst = vi

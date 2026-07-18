@@ -8,7 +8,6 @@
  * onConflictDoNothing) so the script can be re-run safely.
  */
 import { randomBytes } from "node:crypto";
-
 import { TZDate } from "@date-fns/tz";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
