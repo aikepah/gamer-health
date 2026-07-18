@@ -8,10 +8,17 @@ export default function AdminIndexPage() {
         User, invite, and content management land here in upcoming features.
       </p>
       <Link
+<<<<<<< HEAD
         href="/admin/invites"
         className="text-primary text-sm font-medium underline-offset-4 hover:underline"
       >
         Manage coach invites →
+=======
+        href="/admin/users"
+        className="text-primary text-sm font-medium underline underline-offset-4"
+      >
+        User management →
+>>>>>>> origin/main
       </Link>
     </main>
   );

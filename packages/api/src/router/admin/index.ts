@@ -1,5 +1,9 @@
 import { createTRPCRouter } from "../../trpc";
+<<<<<<< HEAD
 import { invitesRouter } from "./invites";
+=======
+import { usersRouter } from "./users";
+>>>>>>> origin/main
 
 /**
  * Admin router skeleton (docs/features/roles-authorization.md, #4). #5/#6/#7
@@ -7,5 +11,9 @@ import { invitesRouter } from "./invites";
  * to this single file is what keeps their root.ts merges conflict-free.
  */
 export const adminRouter = createTRPCRouter({
+<<<<<<< HEAD
   invites: invitesRouter,
+=======
+  users: usersRouter,
+>>>>>>> origin/main
 });
