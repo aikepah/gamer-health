@@ -18,11 +18,9 @@ export const usersRouter = {
     return listUsers(toServiceCtx(ctx), input);
   }),
 
-  setRole: adminProcedure
-    .input(setUserRoleInput)
-    .mutation(({ ctx, input }) => {
-      return setUserRole(toServiceCtx(ctx), input);
-    }),
+  setRole: adminProcedure.input(setUserRoleInput).mutation(({ ctx, input }) => {
+    return setUserRole(toServiceCtx(ctx), input);
+  }),
 
   setActivation: adminProcedure
     .input(setUserActivationInput)

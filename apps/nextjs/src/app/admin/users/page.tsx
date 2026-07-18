@@ -5,9 +5,7 @@ const PAGE_SIZE = 50;
 const AUDIT_LIMIT = 20;
 
 export default function AdminUsersPage() {
-  prefetch(
-    trpc.admin.users.list.queryOptions({ limit: PAGE_SIZE, offset: 0 }),
-  );
+  prefetch(trpc.admin.users.list.queryOptions({ limit: PAGE_SIZE, offset: 0 }));
   prefetch(trpc.admin.users.auditLog.queryOptions({ limit: AUDIT_LIMIT }));
 
   return (

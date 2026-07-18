@@ -307,9 +307,7 @@ export function AdminUsersPageClient({
                 {entry.target && (
                   <>
                     {" "}
-                    for <span className="font-medium">
-                      {entry.target.name}
-                    </span>
+                    for <span className="font-medium">{entry.target.name}</span>
                   </>
                 )}
                 <span className="text-muted-foreground">

@@ -47,7 +47,7 @@ function makeCtx(config: {
 
   const selectQueue = [
     makeChain(config.rows ?? []),
-    makeChain([{ value: config.total ?? (config.rows?.length ?? 0) }]),
+    makeChain([{ value: config.total ?? config.rows?.length ?? 0 }]),
     makeChain(config.sessionAgg ?? []),
     makeChain(config.checkinAgg ?? []),
   ];

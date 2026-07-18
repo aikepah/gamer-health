@@ -8,10 +8,7 @@ export type {
   ListUsersRow,
 } from "./admin/listUsers";
 export { setUserRole, setUserRoleInput } from "./admin/setUserRole";
-export type {
-  SetUserRoleInput,
-  SetUserRoleResult,
-} from "./admin/setUserRole";
+export type { SetUserRoleInput, SetUserRoleResult } from "./admin/setUserRole";
 export {
   setUserActivation,
   setUserActivationInput,
