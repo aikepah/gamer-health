@@ -20,6 +20,12 @@ export default function AdminIndexPage() {
         >
           Manage coach invites →
         </Link>
+        <Link
+          href="/admin/content"
+          className="text-primary text-sm font-medium underline underline-offset-4"
+        >
+          Content management →
+        </Link>
       </div>
     </main>
   );

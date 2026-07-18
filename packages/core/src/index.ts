@@ -25,6 +25,46 @@ export type {
   AdminAuditLogRow,
   ListAdminAuditLogInput,
 } from "./admin/listAdminAuditLog";
+export {
+  listGamesAdmin,
+  listGamesAdminInput,
+} from "./admin/content/listGamesAdmin";
+export type {
+  ListGamesAdminInput,
+  ListGamesAdminResult,
+  ListGamesAdminRow,
+} from "./admin/content/listGamesAdmin";
+export { renameGame, renameGameInput } from "./admin/content/renameGame";
+export type { RenameGameInput } from "./admin/content/renameGame";
+export { mergeGames, mergeGamesInput } from "./admin/content/mergeGames";
+export type {
+  MergeGamesInput,
+  MergeGamesResult,
+} from "./admin/content/mergeGames";
+export { deleteGame, deleteGameInput } from "./admin/content/deleteGame";
+export type { DeleteGameInput } from "./admin/content/deleteGame";
+export { listHabitDefinitionsAdmin } from "./admin/content/listHabitDefinitionsAdmin";
+export type { HabitDefinitionAdminRow } from "./admin/content/listHabitDefinitionsAdmin";
+export {
+  createHabitDefinition,
+  createHabitDefinitionInput,
+} from "./admin/content/createHabitDefinition";
+export type { CreateHabitDefinitionInput } from "./admin/content/createHabitDefinition";
+export {
+  updateHabitDefinition,
+  updateHabitDefinitionInput,
+} from "./admin/content/updateHabitDefinition";
+export type { UpdateHabitDefinitionInput } from "./admin/content/updateHabitDefinition";
+export {
+  setHabitDefinitionArchived,
+  setHabitDefinitionArchivedInput,
+} from "./admin/content/setHabitDefinitionArchived";
+export type { SetHabitDefinitionArchivedInput } from "./admin/content/setHabitDefinitionArchived";
+export {
+  deleteHabitDefinition,
+  deleteHabitDefinitionInput,
+} from "./admin/content/deleteHabitDefinition";
+export type { DeleteHabitDefinitionInput } from "./admin/content/deleteHabitDefinition";
 export { assertCoachOf } from "./authz/assertCoachOf";
 export { getAuthz } from "./authz/getAuthz";
 export type { Authz } from "./authz/getAuthz";
