@@ -884,14 +884,12 @@ async function seed() {
   const { adminId, coachId } = await seedRoles();
   await bootstrapAdminFromEnv();
 
-<<<<<<< HEAD
   // --- Coach invites (#6): pending/expired/revoked/accepted rows ---
   await seedCoachInvites(adminId, coachId);
-=======
+
   // --- Admin user management (#5): extra players + admin audit log rows ---
   const { player3Id } = await seedExtraPlayers();
   await seedAdminAuditLog(adminId, coachId, player3Id);
->>>>>>> origin/main
 
   // --- Session tracking: catalog + demo user's session history ---
   const sessionsByGame = await seedSessionTracking(demoUser.id);

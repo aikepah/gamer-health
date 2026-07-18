@@ -1,8 +1,5 @@
 export type { ServiceCtx } from "./ctx";
 export { ADMIN_AUDIT_ACTIONS, recordAdminAudit } from "./admin/audit";
-<<<<<<< HEAD
-export type { AdminAuditAction } from "./admin/audit";
-=======
 export type { AdminAuditAction, RecordAdminAuditEntry } from "./admin/audit";
 export { listUsers, listUsersInput } from "./admin/listUsers";
 export type {
@@ -28,7 +25,6 @@ export type {
   AdminAuditLogRow,
   ListAdminAuditLogInput,
 } from "./admin/listAdminAuditLog";
->>>>>>> origin/main
 export { assertCoachOf } from "./authz/assertCoachOf";
 export { getAuthz } from "./authz/getAuthz";
 export type { Authz } from "./authz/getAuthz";
