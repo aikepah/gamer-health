@@ -11,6 +11,7 @@
     "./input": "./src/input.tsx",
     "./label": "./src/label.tsx",
     "./separator": "./src/separator.tsx",
+    "./tabs": "./src/tabs.tsx",
     "./theme": "./src/theme.tsx",
     "./toast": "./src/toast.tsx"
   },

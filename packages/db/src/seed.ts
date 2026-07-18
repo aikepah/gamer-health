@@ -11,7 +11,7 @@ import { randomBytes } from "node:crypto";
 import { TZDate } from "@date-fns/tz";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 
 import {
   ACHIEVEMENT_DEFS,
@@ -454,6 +454,79 @@ async function seedSessionTracking(demoUserId: string) {
       return [s.game, row] as const;
     }),
   );
+}
+
+// --- Admin content management (#7): games-catalog curation demo data + one
+// admin-created default habit definition. -----------------------------------
+
+const TYPO_GAME_NAME = "Rocket Leage"; // typo dupe of "Rocket League" (merge demo)
+const DELETE_DEMO_GAME_NAME = "elden ring (steam)"; // zero-session (delete demo)
+const ADMIN_HABIT_DEF_TITLE = "Eat a real meal";
+
+/**
+ * Must run AFTER `seedHabitEngine` (called from `seed()` below): this
+ * section's delete-then-insert of the admin-created definition would trip
+ * the `habit.definition_id` FK if the demo user still had a stale instance
+ * from a previous run — `seedHabitEngine` wipes/re-seeds the demo user's own
+ * Habit rows first, so by the time this runs there's nothing referencing it.
+ */
+async function seedAdminContentDemo(adminId: string, player1Id: string) {
+  await db
+    .insert(Game)
+    .values([
+      { name: TYPO_GAME_NAME, platform: "PC" },
+      { name: DELETE_DEMO_GAME_NAME, platform: null },
+    ])
+    .onConflictDoNothing();
+
+  const typoGame = await db.query.Game.findFirst({
+    where: eq(Game.name, TYPO_GAME_NAME),
+  });
+  if (!typoGame) {
+    throw new Error(`Seed game not found in catalog: ${TYPO_GAME_NAME}`);
+  }
+
+  // Idempotency: wipe player1's sessions on the typo game and re-insert one
+  // completed retro session (merge demo: this session should end up under
+  // "Rocket League" once an admin merges the two catalog rows).
+  await db
+    .delete(GameSession)
+    .where(
+      and(
+        eq(GameSession.userId, player1Id),
+        eq(GameSession.gameId, typoGame.id),
+      ),
+    );
+  const startedAt = chicagoLocal(3, 19, 0);
+  await db.insert(GameSession).values({
+    userId: player1Id,
+    gameId: typoGame.id,
+    startedAt,
+    endedAt: new Date(startedAt.getTime() + 45 * 60_000),
+    source: "manual",
+    notes: null,
+  });
+
+  // Idempotency: delete-then-insert the admin-created default definition
+  // (scoped to slug IS NULL so this never touches the built-in catalog).
+  await db
+    .delete(HabitDefinition)
+    .where(
+      and(
+        isNull(HabitDefinition.slug),
+        eq(HabitDefinition.title, ADMIN_HABIT_DEF_TITLE),
+      ),
+    );
+  await db.insert(HabitDefinition).values({
+    slug: null,
+    title: ADMIN_HABIT_DEF_TITLE,
+    description: "Step away and eat something that isn't a snack.",
+    promptText: "Time for a real meal",
+    triggerType: "daily_schedule",
+    defaultConfig: { timeOfDay: "12:30" },
+    isDefault: true,
+    createdByUserId: adminId,
+  });
 }
 
 // --- Habit catalog: built-in habit definitions (idempotent upsert by slug) -
@@ -928,7 +1001,7 @@ async function seed() {
   await seedCoachInvites(adminId, coachId);
 
   // --- Admin user management (#5): extra players + admin audit log rows ---
-  const { player3Id } = await seedExtraPlayers();
+  const { player1Id, player3Id } = await seedExtraPlayers();
   await seedAdminAuditLog(adminId, coachId, player3Id);
 
   // --- Session tracking: catalog + demo user's session history ---
@@ -940,6 +1013,13 @@ async function seed() {
     sessionsByGame,
     definitionIdBySlug,
   );
+
+  // --- Admin content management (#7): games-catalog curation demo data +
+  // one admin-created default habit definition. Runs after the habit engine
+  // section above (which wipes/re-seeds the demo user's own Habit rows) so
+  // this section's delete-then-insert of the admin-created definition never
+  // trips the habit_definition_id FK against a stale demo-user instance. ---
+  await seedAdminContentDemo(adminId, player1Id);
 
   // --- Check-ins: demo user's daily + post_session check-in history ---
   const checkins = await seedCheckins(demoUser.id, sessionsByGame);

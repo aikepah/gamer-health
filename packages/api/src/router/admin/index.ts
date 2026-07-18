@@ -1,4 +1,5 @@
 import { createTRPCRouter } from "../../trpc";
+import { contentRouter } from "./content";
 import { invitesRouter } from "./invites";
 import { usersRouter } from "./users";
 
@@ -8,6 +9,7 @@ import { usersRouter } from "./users";
  * to this single file is what keeps their root.ts merges conflict-free.
  */
 export const adminRouter = createTRPCRouter({
+  content: contentRouter,
   invites: invitesRouter,
   users: usersRouter,
 });
