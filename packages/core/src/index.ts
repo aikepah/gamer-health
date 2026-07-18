@@ -172,3 +172,39 @@ export type { StopSessionInput } from "./sessions/stopSession";
 export { assertValidSessionTimes } from "./sessions/time";
 export { updateSession, updateSessionInput } from "./sessions/updateSession";
 export type { UpdateSessionInput } from "./sessions/updateSession";
+export {
+  acceptCoachInvite,
+  acceptCoachInviteInput,
+} from "./invites/acceptCoachInvite";
+export type { AcceptCoachInviteInput } from "./invites/acceptCoachInvite";
+export {
+  createCoachInvite,
+  createCoachInviteInput,
+} from "./invites/createCoachInvite";
+export type {
+  CoachInviteRow,
+  CreateCoachInviteInput,
+} from "./invites/createCoachInvite";
+export {
+  getCoachInviteByToken,
+  getCoachInviteByTokenInput,
+} from "./invites/getCoachInviteByToken";
+export type {
+  CoachInviteByToken,
+  GetCoachInviteByTokenInput,
+} from "./invites/getCoachInviteByToken";
+export {
+  listCoachInvites,
+  listCoachInvitesInput,
+} from "./invites/listCoachInvites";
+export type {
+  ListCoachInvitesInput,
+  ListCoachInvitesItem,
+} from "./invites/listCoachInvites";
+export {
+  revokeCoachInvite,
+  revokeCoachInviteInput,
+} from "./invites/revokeCoachInvite";
+export type { RevokeCoachInviteInput } from "./invites/revokeCoachInvite";
+export { coachInviteStatus } from "./invites/status";
+export type { CoachInviteStatus } from "./invites/status";

@@ -10,7 +10,15 @@ import { PlayerStatsCard } from "./_components/gamification/player-stats-card";
 import { PromptTray } from "./_components/habits/prompt-tray";
 import { ActiveSessionCard } from "./_components/sessions/active-session-card";
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ redirect?: string }>;
+}) {
+  const { redirect: redirectParam } = await searchParams;
+  // Only ever honor an internal path — never an absolute/external URL.
+  const redirectTo = redirectParam?.startsWith("/") ? redirectParam : undefined;
+
   const session = await getSession();
   if (session) {
     prefetch(trpc.gameSession.active.queryOptions());
@@ -34,7 +42,7 @@ export default async function HomePage() {
             earn XP for taking care of yourself.
           </p>
         </div>
-        <AuthShowcase />
+        <AuthShowcase redirectTo={redirectTo} />
       </main>
     );
   }
