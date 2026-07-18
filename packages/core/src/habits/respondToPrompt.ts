@@ -32,7 +32,7 @@ export async function respondToPrompt(
       eq(HabitPrompt.id, input.promptId),
       eq(HabitPrompt.userId, userId),
     ),
-    with: { habit: true },
+    with: { habit: { with: { definition: true } } },
   });
   if (!prompt) {
     throw new CoreError("NOT_FOUND", "Prompt not found");
@@ -58,7 +58,10 @@ export async function respondToPrompt(
     await recordRewardEvent(ctx, {
       eventType: "habit_prompt_completed",
       sourceId: updated.id,
-      meta: { habitKind: prompt.habit.kind },
+      meta: {
+        habitKind: prompt.habit.definition.slug ?? null,
+        definitionId: prompt.habit.definitionId,
+      },
     });
   }
 

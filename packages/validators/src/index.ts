@@ -21,6 +21,7 @@ export const USER_ROLES = ["player", "coach", "admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 export * from "./gamification";
+export * from "./habits";
 
 export const unused = z.string().describe(
   `This lib is currently not used as we use drizzle-zod for simple schemas

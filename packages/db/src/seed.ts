@@ -15,6 +15,7 @@ import { eq, inArray } from "drizzle-orm";
 
 import {
   ACHIEVEMENT_DEFS,
+  BUILT_IN_HABIT_DEFINITIONS,
   REWARD_EVENT_DEFS,
   STREAK_KINDS,
 } from "@gamer-health/validators";
@@ -27,6 +28,7 @@ import {
   Game,
   GameSession,
   Habit,
+  HabitDefinition,
   HabitPrompt,
   Profile,
   RewardEvent,
@@ -454,6 +456,36 @@ async function seedSessionTracking(demoUserId: string) {
   );
 }
 
+// --- Habit catalog: built-in habit definitions (idempotent upsert by slug) -
+
+/**
+ * Upserts the six built-in habit definitions from
+ * @gamer-health/validators' BUILT_IN_HABIT_DEFINITIONS (the single source of
+ * truth for built-in habit data — see docs/features/habit-generalization.md)
+ * and returns their ids keyed by slug for the habit-engine section below.
+ */
+async function seedHabitDefinitions(): Promise<Map<string, string>> {
+  await db
+    .insert(HabitDefinition)
+    .values(
+      BUILT_IN_HABIT_DEFINITIONS.map((d) => ({
+        ...d,
+        defaultConfig: { ...d.defaultConfig },
+        isDefault: true,
+        createdByUserId: null,
+      })),
+    )
+    .onConflictDoNothing({ target: HabitDefinition.slug });
+
+  const rows = await db.query.HabitDefinition.findMany({
+    where: inArray(
+      HabitDefinition.slug,
+      BUILT_IN_HABIT_DEFINITIONS.map((d) => d.slug),
+    ),
+  });
+  return new Map(rows.map((r) => [r.slug ?? "", r.id]));
+}
+
 // --- Habit engine: demo user's habits + representative historical prompts -
 
 type SeedGameSession = NonNullable<
@@ -467,23 +499,19 @@ type SeedPromptStatus = "done" | "skipped" | "expired";
 /** Built-in habits enabled for the demo user, with their default configs. */
 const DEMO_ENABLED_HABITS = [
   {
-    kind: "break_interval" as const,
-    triggerType: "session_interval" as const,
+    slug: "break_interval",
     config: { intervalMinutes: 50 },
   },
   {
-    kind: "hydrate" as const,
-    triggerType: "session_interval" as const,
+    slug: "hydrate",
     config: { intervalMinutes: 30 },
   },
   {
-    kind: "daily_movement" as const,
-    triggerType: "daily_schedule" as const,
+    slug: "daily_movement",
     config: { timeOfDay: "17:00" },
   },
   {
-    kind: "bedtime_cutoff" as const,
-    triggerType: "daily_schedule" as const,
+    slug: "bedtime_cutoff",
     config: { bedtime: "23:00", leadMinutes: 60 },
   },
 ];
@@ -513,30 +541,41 @@ const DAILY_MOVEMENT_PROMPTS: {
 async function seedHabitEngine(
   demoUserId: string,
   sessionsByGame: Map<string, SeedGameSession>,
+  definitionIdBySlug: Map<string, string>,
 ) {
   // Cascades to this user's habit_prompt rows (habitId FK, onDelete cascade).
   await db.delete(Habit).where(eq(Habit.userId, demoUserId));
+
+  function definitionId(slug: string): string {
+    const id = definitionIdBySlug.get(slug);
+    if (!id) {
+      throw new Error(`Seed habit definition not found: ${slug}`);
+    }
+    return id;
+  }
 
   const habitRows = await db
     .insert(Habit)
     .values(
       DEMO_ENABLED_HABITS.map((h) => ({
         userId: demoUserId,
-        kind: h.kind,
-        triggerType: h.triggerType,
+        definitionId: definitionId(h.slug),
         enabled: true,
         config: h.config,
       })),
     )
     .returning();
 
-  const habitIdByKind = new Map<string, string>(
-    habitRows.map((h) => [h.kind, h.id]),
+  const slugByDefinitionId = new Map(
+    Array.from(definitionIdBySlug.entries()).map(([slug, id]) => [id, slug]),
   );
-  function habitId(kind: string): string {
-    const id = habitIdByKind.get(kind);
+  const habitIdBySlug = new Map<string, string>(
+    habitRows.map((h) => [slugByDefinitionId.get(h.definitionId) ?? "", h.id]),
+  );
+  function habitId(slug: string): string {
+    const id = habitIdBySlug.get(slug);
     if (!id) {
-      throw new Error(`Seed habit not found: ${kind}`);
+      throw new Error(`Seed habit not found: ${slug}`);
     }
     return id;
   }
@@ -883,6 +922,8 @@ async function seed() {
   const { adminId, coachId } = await seedRoles();
   await bootstrapAdminFromEnv();
 
+  // --- Habit catalog: built-in habit definitions (upsert by slug) ---
+  const definitionIdBySlug = await seedHabitDefinitions();
   // --- Coach invites (#6): pending/expired/revoked/accepted rows ---
   await seedCoachInvites(adminId, coachId);
 
@@ -894,7 +935,11 @@ async function seed() {
   const sessionsByGame = await seedSessionTracking(demoUser.id);
 
   // --- Habit engine: demo user's habits + representative historical prompts
-  const prompts = await seedHabitEngine(demoUser.id, sessionsByGame);
+  const prompts = await seedHabitEngine(
+    demoUser.id,
+    sessionsByGame,
+    definitionIdBySlug,
+  );
 
   // --- Check-ins: demo user's daily + post_session check-in history ---
   const checkins = await seedCheckins(demoUser.id, sessionsByGame);

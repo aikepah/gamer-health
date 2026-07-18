@@ -12,7 +12,7 @@ export function HabitsPageClient() {
   return (
     <div className="flex flex-col gap-4">
       {habits.map((habit) => (
-        <HabitCard key={habit.kind} item={habit} />
+        <HabitCard key={habit.definitionId} item={habit} />
       ))}
     </div>
   );

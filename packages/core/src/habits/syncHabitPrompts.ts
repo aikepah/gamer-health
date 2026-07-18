@@ -9,7 +9,6 @@ import type { HabitRow } from "./upsertHabit";
 import { requireUserId } from "../lib/auth";
 import { addMinutes, localDateString, zonedTimeToUtc } from "../lib/dates";
 import { getOrCreateProfile } from "../profile/getOrCreateProfile";
-import { HABIT_DEFINITIONS } from "./definitions";
 
 export const syncHabitPromptsInput = z.object({
   /** Injectable for tests only; defaults to the real current time. */
@@ -25,17 +24,19 @@ export interface PendingHabitPrompt extends HabitPromptRow {
 
 /** Sanity bound on how many session-interval occurrences we'll ever compute. */
 const MAX_INTERVAL_OCCURRENCES = 500;
-/** General backstop: any pending prompt this old is stale regardless of kind. */
+/** General backstop: any pending prompt this old is stale regardless of trigger type. */
 const EXPIRY_GRACE_MINUTES = 60;
 
 type HabitPromptInsert = typeof HabitPrompt.$inferInsert;
 
 /**
- * Generation-on-read engine (docs/features/habit-engine.md). Materializes due
- * habit prompts for the caller, expires stale ones, and returns what's
- * currently pending. Deterministic due times + the unique (habitId, dueAt)
- * index make repeated/concurrent calls idempotent — safe to call from a
- * polled query.
+ * Generation-on-read engine (docs/features/habit-engine.md,
+ * docs/features/habit-generalization.md). Materializes due habit prompts for
+ * the caller, expires stale ones, and returns what's currently pending.
+ * Switches on `definition.triggerType` alone — no per-slug/kind special
+ * cases, so any out-of-game habit works identically to the six built-ins.
+ * Deterministic due times + the unique (habitId, dueAt) index make
+ * repeated/concurrent calls idempotent — safe to call from a polled query.
  */
 export async function syncHabitPrompts(
   ctx: ServiceCtx,
@@ -49,6 +50,7 @@ export async function syncHabitPrompts(
 
   const habits = await ctx.db.query.Habit.findMany({
     where: and(eq(Habit.userId, userId), eq(Habit.enabled, true)),
+    with: { definition: true },
   });
 
   const activeSession = await ctx.db.query.GameSession.findFirst({
@@ -58,12 +60,13 @@ export async function syncHabitPrompts(
   const candidates: HabitPromptInsert[] = [];
 
   for (const habit of habits) {
-    const def = HABIT_DEFINITIONS[habit.kind];
+    const { triggerType } = habit.definition;
 
-    if (habit.triggerType === "session_interval") {
+    if (triggerType === "session_interval") {
       if (!activeSession) continue;
       const intervalMinutes =
-        habit.config.intervalMinutes ?? def.defaultConfig.intervalMinutes;
+        habit.config.intervalMinutes ??
+        habit.definition.defaultConfig.intervalMinutes;
       if (!intervalMinutes) continue;
 
       for (let k = 1; k <= MAX_INTERVAL_OCCURRENCES; k++) {
@@ -79,9 +82,9 @@ export async function syncHabitPrompts(
       continue;
     }
 
-    // triggerType === "daily_schedule" — today only, never backfilled.
-    if (habit.kind === "daily_movement") {
-      const timeOfDay = habit.config.timeOfDay ?? def.defaultConfig.timeOfDay;
+    if (triggerType === "daily_schedule") {
+      const timeOfDay =
+        habit.config.timeOfDay ?? habit.definition.defaultConfig.timeOfDay;
       if (!timeOfDay) continue;
       const dueAt = zonedTimeToUtc(today, timeOfDay, tz);
       if (dueAt.getTime() <= now.getTime()) {
@@ -90,19 +93,16 @@ export async function syncHabitPrompts(
       continue;
     }
 
-    if (habit.kind === "bedtime_cutoff") {
-      if (!activeSession) continue;
-      const bedtime = habit.config.bedtime ?? def.defaultConfig.bedtime;
-      const leadMinutes =
-        habit.config.leadMinutes ?? def.defaultConfig.leadMinutes;
-      if (!bedtime || leadMinutes == null) continue;
-      const dueAt = addMinutes(
-        zonedTimeToUtc(today, bedtime, tz),
-        -leadMinutes,
-      );
-      if (dueAt.getTime() <= now.getTime()) {
-        candidates.push({ habitId: habit.id, userId, sessionId: null, dueAt });
-      }
+    // triggerType === "bedtime_cutoff" — only while a session is active.
+    if (!activeSession) continue;
+    const bedtime =
+      habit.config.bedtime ?? habit.definition.defaultConfig.bedtime;
+    const leadMinutes =
+      habit.config.leadMinutes ?? habit.definition.defaultConfig.leadMinutes;
+    if (!bedtime || leadMinutes == null) continue;
+    const dueAt = addMinutes(zonedTimeToUtc(today, bedtime, tz), -leadMinutes);
+    if (dueAt.getTime() <= now.getTime()) {
+      candidates.push({ habitId: habit.id, userId, sessionId: null, dueAt });
     }
   }
 
@@ -117,27 +117,30 @@ export async function syncHabitPrompts(
       eq(HabitPrompt.userId, userId),
       eq(HabitPrompt.status, "pending"),
     ),
-    with: { habit: true, session: true },
+    with: { habit: { with: { definition: true } }, session: true },
   });
 
   const expiredIds: string[] = [];
   for (const row of pendingRows) {
     const { habit } = row;
-    const def = HABIT_DEFINITIONS[habit.kind];
+    const { triggerType } = habit.definition;
 
     const sessionEnded =
-      habit.triggerType === "session_interval" && row.session?.endedAt != null;
+      triggerType === "session_interval" && row.session?.endedAt != null;
 
     const pastBedtime =
-      habit.kind === "bedtime_cutoff" &&
+      triggerType === "bedtime_cutoff" &&
       now.getTime() >
         addMinutes(
           row.dueAt,
-          habit.config.leadMinutes ?? def.defaultConfig.leadMinutes ?? 0,
+          habit.config.leadMinutes ??
+            habit.definition.defaultConfig.leadMinutes ??
+            0,
         ).getTime();
 
     const pastLocalDay =
-      habit.kind === "daily_movement" && localDateString(row.dueAt, tz) < today;
+      triggerType === "daily_schedule" &&
+      localDateString(row.dueAt, tz) < today;
 
     const stale =
       now.getTime() > addMinutes(row.dueAt, EXPIRY_GRACE_MINUTES).getTime();
@@ -161,11 +164,15 @@ export async function syncHabitPrompts(
         !expiredIdSet.has(row.id) && row.dueAt.getTime() <= now.getTime(),
     )
     .sort((a, b) => a.dueAt.getTime() - b.dueAt.getTime())
-    .map((row) => ({
-      ...row,
-      promptText: HABIT_DEFINITIONS[row.habit.kind].promptText,
-      title: HABIT_DEFINITIONS[row.habit.kind].title,
-    }));
+    .map((row) => {
+      const { definition, ...habitRow } = row.habit;
+      return {
+        ...row,
+        habit: habitRow,
+        promptText: definition.promptText,
+        title: definition.title,
+      };
+    });
 
   return { pending };
 }
