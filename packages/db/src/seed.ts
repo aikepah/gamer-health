@@ -20,6 +20,7 @@ import {
 
 import { db } from "./client";
 import {
+  AdminAuditLog,
   Checkin,
   Game,
   GameSession,
@@ -173,6 +174,94 @@ async function bootstrapAdminFromEnv() {
       set: { role: "admin" },
     });
   console.log(`Bootstrapped admin role for ${email}.`);
+}
+
+// --- Admin user management (#5): extra players (one deactivated) + a couple
+// of admin audit log rows, so `/admin/users` has more than one row and its
+// "Recent admin activity" panel is populated from a fresh seed. ------------
+
+const PLAYER1_EMAIL = "player1@gamerhealth.dev";
+const PLAYER1_NAME = "Riley Chen";
+const PLAYER2_EMAIL = "player2@gamerhealth.dev";
+const PLAYER2_NAME = "Sam Okafor";
+const PLAYER3_EMAIL = "player3@gamerhealth.dev";
+const PLAYER3_NAME = "Jordan Blake";
+const EXTRA_PLAYER_PASSWORD = "demo1234";
+
+async function seedExtraPlayer(
+  email: string,
+  name: string,
+  deactivatedAt: Date | null,
+) {
+  const existing = await db.query.user.findFirst({
+    where: eq(user.email, email),
+  });
+
+  const playerUser =
+    existing ??
+    (
+      await auth.api.signUpEmail({
+        body: { email, password: EXTRA_PLAYER_PASSWORD, name },
+      })
+    ).user;
+
+  await db
+    .insert(Profile)
+    .values({
+      userId: playerUser.id,
+      timezone: "America/Chicago",
+      platforms: [],
+      goals: null,
+      role: "player",
+      deactivatedAt,
+    })
+    .onConflictDoUpdate({
+      target: Profile.userId,
+      set: { role: "player", deactivatedAt },
+    });
+
+  return playerUser.id;
+}
+
+async function seedExtraPlayers() {
+  const player1Id = await seedExtraPlayer(PLAYER1_EMAIL, PLAYER1_NAME, null);
+  const player2Id = await seedExtraPlayer(PLAYER2_EMAIL, PLAYER2_NAME, null);
+  const player3Id = await seedExtraPlayer(
+    PLAYER3_EMAIL,
+    PLAYER3_NAME,
+    chicagoLocal(2, 9, 0),
+  );
+  return { player1Id, player2Id, player3Id };
+}
+
+/**
+ * One `role_change` (demo coach player -> coach) and one `user_deactivate`
+ * (player3), both authored by the demo admin. Idempotency: wipe rows authored
+ * by the demo admin and re-insert deterministically.
+ */
+async function seedAdminAuditLog(
+  adminId: string,
+  coachId: string,
+  player3Id: string,
+) {
+  await db.delete(AdminAuditLog).where(eq(AdminAuditLog.actorUserId, adminId));
+
+  await db.insert(AdminAuditLog).values([
+    {
+      actorUserId: adminId,
+      targetUserId: coachId,
+      action: "role_change",
+      meta: { from: "player", to: "coach" },
+      createdAt: chicagoLocal(5, 9, 0),
+    },
+    {
+      actorUserId: adminId,
+      targetUserId: player3Id,
+      action: "user_deactivate",
+      meta: {},
+      createdAt: chicagoLocal(2, 9, 0),
+    },
+  ]);
 }
 
 // --- Session tracking: catalog + demo user's session history --------------
@@ -732,8 +821,12 @@ async function seed() {
   const demoUser = await seedDemoUser();
 
   // --- Roles: demo admin + demo coach accounts (demo user stays a player) ---
-  await seedRoles();
+  const { adminId, coachId } = await seedRoles();
   await bootstrapAdminFromEnv();
+
+  // --- Admin user management (#5): extra players + admin audit log rows ---
+  const { player3Id } = await seedExtraPlayers();
+  await seedAdminAuditLog(adminId, coachId, player3Id);
 
   // --- Session tracking: catalog + demo user's session history ---
   const sessionsByGame = await seedSessionTracking(demoUser.id);

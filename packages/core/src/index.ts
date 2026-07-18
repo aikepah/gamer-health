@@ -1,4 +1,33 @@
 export type { ServiceCtx } from "./ctx";
+export { ADMIN_AUDIT_ACTIONS, recordAdminAudit } from "./admin/audit";
+export type { AdminAuditAction, RecordAdminAuditEntry } from "./admin/audit";
+export { listUsers, listUsersInput } from "./admin/listUsers";
+export type {
+  ListUsersInput,
+  ListUsersResult,
+  ListUsersRow,
+} from "./admin/listUsers";
+export { setUserRole, setUserRoleInput } from "./admin/setUserRole";
+export type {
+  SetUserRoleInput,
+  SetUserRoleResult,
+} from "./admin/setUserRole";
+export {
+  setUserActivation,
+  setUserActivationInput,
+} from "./admin/setUserActivation";
+export type {
+  SetUserActivationInput,
+  SetUserActivationResult,
+} from "./admin/setUserActivation";
+export {
+  listAdminAuditLog,
+  listAdminAuditLogInput,
+} from "./admin/listAdminAuditLog";
+export type {
+  AdminAuditLogRow,
+  ListAdminAuditLogInput,
+} from "./admin/listAdminAuditLog";
 export { assertCoachOf } from "./authz/assertCoachOf";
 export { getAuthz } from "./authz/getAuthz";
 export type { Authz } from "./authz/getAuthz";
