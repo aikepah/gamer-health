@@ -1,10 +1,9 @@
 import type { z } from "zod/v4";
 
 import { and, eq, ne, sql } from "@gamer-health/db";
-import { Habit, HabitPrompt } from "@gamer-health/db/schema";
+import { Habit, HabitDefinition, HabitPrompt } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
-import type { HabitKind } from "../habits/definitions";
 import { requireUserId } from "../lib/auth";
 import { localDateString } from "../lib/dates";
 import { getOrCreateProfile } from "../profile/getOrCreateProfile";
@@ -18,7 +17,8 @@ export type GetHabitCompletionStatsInput = z.infer<
 type NonPendingStatus = "done" | "skipped" | "expired";
 
 export interface HabitCompletionCountRow {
-  kind: HabitKind;
+  definitionId: string;
+  title: string;
   status: NonPendingStatus;
   count: number;
 }
@@ -29,12 +29,17 @@ export interface HabitCompletionStats {
   expired: number;
   /** done / (done + skipped + expired); null when that denominator is 0. */
   completionRate: number | null;
-  byKind: { kind: HabitKind; done: number; total: number }[];
+  byHabit: {
+    definitionId: string;
+    title: string;
+    done: number;
+    total: number;
+  }[];
 }
 
 /**
- * Pure: reduces per-(kind, status) counts (pending already excluded) into
- * the dashboard's completion summary shape.
+ * Pure: reduces per-(definition, status) counts (pending already excluded)
+ * into the dashboard's completion summary shape.
  */
 export function aggregateHabitCompletion(
   rows: HabitCompletionCountRow[],
@@ -42,17 +47,24 @@ export function aggregateHabitCompletion(
   let done = 0;
   let skipped = 0;
   let expired = 0;
-  const byKind = new Map<HabitKind, { done: number; total: number }>();
+  const byHabit = new Map<
+    string,
+    { title: string; done: number; total: number }
+  >();
 
   for (const row of rows) {
     if (row.status === "done") done += row.count;
     else if (row.status === "skipped") skipped += row.count;
     else expired += row.count;
 
-    const entry = byKind.get(row.kind) ?? { done: 0, total: 0 };
+    const entry = byHabit.get(row.definitionId) ?? {
+      title: row.title,
+      done: 0,
+      total: 0,
+    };
     entry.total += row.count;
     if (row.status === "done") entry.done += row.count;
-    byKind.set(row.kind, entry);
+    byHabit.set(row.definitionId, entry);
   }
 
   const total = done + skipped + expired;
@@ -61,7 +73,10 @@ export function aggregateHabitCompletion(
     skipped,
     expired,
     completionRate: total === 0 ? null : done / total,
-    byKind: Array.from(byKind.entries()).map(([kind, v]) => ({ kind, ...v })),
+    byHabit: Array.from(byHabit.entries()).map(([definitionId, v]) => ({
+      definitionId,
+      ...v,
+    })),
   };
 }
 
@@ -69,8 +84,8 @@ export function aggregateHabitCompletion(
  * Habit-prompt completion stats over the last `input.days` days (default 7).
  * Bucketed by the local date of `dueAt`; `pending` prompts are excluded
  * entirely (not "not yet resolved" — just out of scope for a completion
- * rate). `byKind` only lists kinds with at least one non-pending prompt in
- * range.
+ * rate). `byHabit` only lists definitions with at least one non-pending
+ * prompt in range.
  */
 export async function getHabitCompletionStats(
   ctx: ServiceCtx,
@@ -84,12 +99,14 @@ export async function getHabitCompletionStats(
 
   const rows = await ctx.db
     .select({
-      kind: Habit.kind,
+      definitionId: Habit.definitionId,
+      title: HabitDefinition.title,
       status: HabitPrompt.status,
       count: sql<string>`count(*)`,
     })
     .from(HabitPrompt)
     .innerJoin(Habit, eq(Habit.id, HabitPrompt.habitId))
+    .innerJoin(HabitDefinition, eq(HabitDefinition.id, Habit.definitionId))
     .where(
       and(
         eq(HabitPrompt.userId, userId),
@@ -97,11 +114,12 @@ export async function getHabitCompletionStats(
         sql`(${HabitPrompt.dueAt} AT TIME ZONE ${tz})::date BETWEEN ${startDate} AND ${endDate}`,
       ),
     )
-    .groupBy(Habit.kind, HabitPrompt.status);
+    .groupBy(Habit.definitionId, HabitDefinition.title, HabitPrompt.status);
 
   return aggregateHabitCompletion(
     rows.map((r) => ({
-      kind: r.kind,
+      definitionId: r.definitionId,
+      title: r.title,
       status: r.status as NonPendingStatus,
       count: Number(r.count),
     })),

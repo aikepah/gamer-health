@@ -21,8 +21,17 @@ export const recordRewardEventInput = z.object({
   sourceId: z.string().min(1),
   /** Only used for achievement_unlocked (xp comes from the achievement def). */
   xpOverride: z.number().int().positive().optional(),
-  /** Extra context consumed by the Phase 3 engine (streaks). */
-  meta: z.object({ habitKind: z.string().optional() }).optional(),
+  /**
+   * Extra context consumed by the Phase 3 engine (streaks). `habitKind` is
+   * `habit_definition.slug ?? null` (#8) — null for out-of-game/custom
+   * habits, which earn XP but no per-habit streak.
+   */
+  meta: z
+    .object({
+      habitKind: z.string().nullable().optional(),
+      definitionId: z.uuid().optional(),
+    })
+    .optional(),
 });
 export type RecordRewardEventInput = z.infer<typeof recordRewardEventInput>;
 

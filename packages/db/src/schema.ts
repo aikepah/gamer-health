@@ -28,16 +28,6 @@ export const sessionSourceEnum = pgEnum("session_source", ["manual", "steam"]);
  */
 export const userRoleEnum = pgEnum("user_role", [...USER_ROLES]);
 
-/** The built-in habit set. Adding a kind is a migration + a core definition. */
-export const habitKindEnum = pgEnum("habit_kind", [
-  "break_interval",
-  "hydrate",
-  "stretch",
-  "posture",
-  "bedtime_cutoff",
-  "daily_movement",
-]);
-
 /**
  * How prompts for a habit are generated (see docs/features/habit-engine.md
  * and docs/features/habit-generalization.md). `bedtime_cutoff` (MVP 2, #8) is
@@ -308,17 +298,18 @@ export const LogGameSessionSchema = createInsertSchema(GameSession, {
   .required({ endedAt: true });
 
 // ---------------------------------------------------------------------------
-// Habits — per-user instances of the built-in habit kinds.
+// Habits — per-user instances of a habit_definition catalog entry.
 // ---------------------------------------------------------------------------
 
 /**
- * Per-kind config stored as jsonb. Which keys apply per kind is defined in
- * docs/features/habit-engine.md; HabitConfigSchema validates the superset.
+ * Per-trigger-type config stored as jsonb. Which keys apply per trigger type
+ * is defined in docs/features/habit-generalization.md; HabitConfigSchema
+ * validates the superset.
  */
 export interface HabitConfig {
-  /** session_interval kinds: prompt every N minutes of active session. */
+  /** session_interval: prompt every N minutes of active session. */
   intervalMinutes?: number;
-  /** daily_movement: local time "HH:MM" the daily prompt is due. */
+  /** daily_schedule: local time "HH:MM" the daily prompt is due. */
   timeOfDay?: string;
   /** bedtime_cutoff: local bedtime "HH:MM". */
   bedtime?: string;
@@ -387,22 +378,13 @@ export const Habit = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     /**
-     * TRANSITIONAL (#8): `kind` and `triggerType` are replaced by
-     * `definitionId` → habit_definition. They are dropped — along with the
-     * habit_kind enum and habit_user_kind_idx — by the #8 builder in the same
-     * PR that refactors core off them. Exact steps:
-     * docs/features/habit-generalization.md §Migration.
+     * Which catalog definition this instance follows. No cascade: definitions
+     * with instances can't be deleted, only archived.
      */
-    kind: habitKindEnum().notNull(),
-    triggerType: habitTriggerTypeEnum().notNull(),
-    /**
-     * Which catalog definition this instance follows. Nullable only during
-     * the #8 migration window (backfilled from `kind` by
-     * src/migrations/0001-habit-definition-backfill.ts); NOT NULL once the
-     * transitional columns are dropped. No cascade: definitions with
-     * instances can't be deleted, only archived.
-     */
-    definitionId: t.uuid().references(() => HabitDefinition.id),
+    definitionId: t
+      .uuid()
+      .notNull()
+      .references(() => HabitDefinition.id),
     /**
      * Wave 2 (#14): coach who assigned this habit; null = self-adopted.
      * Added now so #14 needs no further habit-table migration.
@@ -423,29 +405,13 @@ export const Habit = pgTable(
       .$onUpdateFn(() => new Date()),
   }),
   (table) => [
-    // One instance of each built-in habit per user. Dropped in #8.
-    uniqueIndex("habit_user_kind_idx").on(table.userId, table.kind),
-    // One instance of each definition per user (nulls distinct, so the
-    // migration window is unaffected).
+    // One instance of each definition per user.
     uniqueIndex("habit_user_definition_idx").on(
       table.userId,
       table.definitionId,
     ),
   ],
 );
-
-/** TRANSITIONAL (#8): replaced by a definitionId-keyed upsert input in core. */
-export const UpsertHabitSchema = createInsertSchema(Habit, {
-  config: HabitConfigSchema,
-}).omit({
-  id: true,
-  userId: true,
-  triggerType: true, // derived from kind in core, not client-supplied
-  definitionId: true, // migration-window column; #8 makes it the identity
-  assignedByUserId: true, // wave 2 (#14), coach-written only
-  createdAt: true,
-  updatedAt: true,
-});
 
 // ---------------------------------------------------------------------------
 // Habit prompts — generated instances (generation-on-read; no job runner).

@@ -13,19 +13,44 @@ vi.mock("../gamification/events", () => ({
 // Import after the mock so respondToPrompt picks up the mocked module.
 const { respondToPrompt } = await import("./respondToPrompt");
 
-function makeHabitRow(overrides: Partial<HabitRow> = {}): HabitRow {
+type HabitDefinitionRow = Awaited<
+  ReturnType<ServiceCtx["db"]["query"]["HabitDefinition"]["findFirst"]>
+>;
+type DefRow = NonNullable<HabitDefinitionRow>;
+
+function makeDefRow(overrides: Partial<DefRow> = {}): DefRow {
+  return {
+    id: "def_hydrate",
+    slug: "hydrate",
+    title: "Hydration Reminder",
+    description: "Stay hydrated.",
+    promptText: "Drink some water",
+    triggerType: "session_interval",
+    defaultConfig: {},
+    isDefault: true,
+    createdByUserId: null,
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as DefRow;
+}
+
+function makeHabitRow(
+  def: DefRow,
+  overrides: Partial<Omit<HabitRow, "definitionId">> = {},
+): HabitRow & { definition: DefRow } {
   return {
     id: "habit_1",
     userId: "user_1",
-    kind: "hydrate",
-    triggerType: "session_interval",
-    definitionId: null,
+    definitionId: def.id,
     assignedByUserId: null,
     enabled: true,
     config: { intervalMinutes: 30 },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
+    definition: def,
   };
 }
 
@@ -47,7 +72,7 @@ function makePromptRow(
 
 function makeCtx(options: {
   userId: string | null;
-  found?: (HabitPromptRow & { habit: HabitRow }) | undefined;
+  found?: (HabitPromptRow & { habit: HabitRow & { definition: DefRow } }) | undefined;
   updated?: HabitPromptRow[];
 }): {
   ctx: ServiceCtx;
@@ -91,7 +116,7 @@ describe("respondToPrompt", () => {
   it("throws CoreError(CONFLICT) when the prompt isn't pending", async () => {
     const found = {
       ...makePromptRow({ status: "done" }),
-      habit: makeHabitRow(),
+      habit: makeHabitRow(makeDefRow()),
     };
     const { ctx } = makeCtx({ userId: "user_1", found });
     await expect(
@@ -99,8 +124,8 @@ describe("respondToPrompt", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
-  it("marks done, sets respondedAt, and emits habit_prompt_completed with meta.habitKind", async () => {
-    const habit = makeHabitRow({ kind: "hydrate" });
+  it("marks done, sets respondedAt, and emits habit_prompt_completed with meta.habitKind = definition.slug", async () => {
+    const habit = makeHabitRow(makeDefRow({ slug: "hydrate" }));
     const found = { ...makePromptRow(), habit };
     const updated = makePromptRow({ status: "done", respondedAt: new Date() });
     const { ctx, update } = makeCtx({
@@ -127,13 +152,31 @@ describe("respondToPrompt", () => {
       expect.objectContaining({
         eventType: "habit_prompt_completed",
         sourceId: updated.id,
-        meta: { habitKind: "hydrate" },
+        meta: { habitKind: "hydrate", definitionId: habit.definitionId },
+      }),
+    );
+  });
+
+  it("emits meta.habitKind: null for a custom (non-built-in) definition", async () => {
+    const habit = makeHabitRow(
+      makeDefRow({ id: "def_meal", slug: null, title: "Eat a real meal" }),
+    );
+    const found = { ...makePromptRow(), habit };
+    const updated = makePromptRow({ status: "done", respondedAt: new Date() });
+    const { ctx } = makeCtx({ userId: "user_1", found, updated: [updated] });
+
+    await respondToPrompt(ctx, { promptId: "prompt_1", response: "done" });
+
+    expect(recordRewardEvent).toHaveBeenCalledWith(
+      ctx,
+      expect.objectContaining({
+        meta: { habitKind: null, definitionId: "def_meal" },
       }),
     );
   });
 
   it("marks skipped without emitting a reward event", async () => {
-    const habit = makeHabitRow();
+    const habit = makeHabitRow(makeDefRow());
     const found = { ...makePromptRow(), habit };
     const updated = makePromptRow({
       status: "skipped",

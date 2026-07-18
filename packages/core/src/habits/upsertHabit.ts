@@ -1,16 +1,16 @@
 import { z } from "zod/v4";
 
 import type { HabitConfig } from "@gamer-health/db/schema";
-import { Habit, HabitConfigSchema } from "@gamer-health/db/schema";
+import { and, eq } from "@gamer-health/db";
+import { Habit, HabitConfigSchema, HabitDefinition } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
-import type { HabitKind } from "./definitions";
 import { requireUserId } from "../lib/auth";
 import { CoreError } from "../lib/errors";
-import { HABIT_DEFINITIONS, habitKindSchema } from "./definitions";
+import { validateHabitConfig } from "./validateHabitConfig";
 
 export const upsertHabitInput = z.object({
-  kind: habitKindSchema,
+  definitionId: z.uuid(),
   enabled: z.boolean(),
   config: HabitConfigSchema.optional(),
 });
@@ -19,69 +19,53 @@ export type UpsertHabitInput = z.infer<typeof upsertHabitInput>;
 export type HabitRow = typeof Habit.$inferSelect;
 
 /**
- * Validates that `config` has the fields required by `kind`'s trigger type.
- * Throws `CoreError("BAD_REQUEST")` when a required field is missing.
- */
-function assertValidConfig(kind: HabitKind, config: HabitConfig): void {
-  const { triggerType } = HABIT_DEFINITIONS[kind];
-
-  if (triggerType === "session_interval") {
-    if (typeof config.intervalMinutes !== "number") {
-      throw new CoreError(
-        "BAD_REQUEST",
-        "intervalMinutes is required for this habit",
-      );
-    }
-    return;
-  }
-
-  if (kind === "bedtime_cutoff") {
-    if (
-      typeof config.bedtime !== "string" ||
-      typeof config.leadMinutes !== "number"
-    ) {
-      throw new CoreError(
-        "BAD_REQUEST",
-        "bedtime and leadMinutes are required for bedtime_cutoff",
-      );
-    }
-    return;
-  }
-
-  // kind === "daily_movement"
-  if (typeof config.timeOfDay !== "string") {
-    throw new CoreError(
-      "BAD_REQUEST",
-      "timeOfDay is required for daily_movement",
-    );
-  }
-}
-
-/**
- * Enables/disables and configures a built-in habit for the caller. Upserts on
- * the (userId, kind) unique index. `triggerType` always comes from
- * `HABIT_DEFINITIONS` — never client-supplied.
+ * Enables/disables and configures a habit definition for the caller. Upserts
+ * on the (userId, definitionId) unique index. `triggerType` always comes
+ * from the definition row — never client-supplied.
  */
 export async function upsertHabit(
   ctx: ServiceCtx,
   input: UpsertHabitInput,
 ): Promise<HabitRow> {
   const userId = requireUserId(ctx);
-  const def = HABIT_DEFINITIONS[input.kind];
-  const config: HabitConfig = { ...def.defaultConfig, ...input.config };
-  assertValidConfig(input.kind, config);
+
+  const definition = await ctx.db.query.HabitDefinition.findFirst({
+    where: eq(HabitDefinition.id, input.definitionId),
+  });
+  if (!definition) {
+    throw new CoreError("NOT_FOUND", "Habit definition not found");
+  }
+
+  const existing = await ctx.db.query.Habit.findFirst({
+    where: and(
+      eq(Habit.userId, userId),
+      eq(Habit.definitionId, input.definitionId),
+    ),
+  });
+
+  // Visible = in the default catalog, or the caller already has an instance
+  // (covers a definition since archived or turned non-default).
+  if (!definition.isDefault && !existing) {
+    throw new CoreError("NOT_FOUND", "Habit definition not found");
+  }
+  // Archived definitions can't gain new instances, but existing ones keep working.
+  if (definition.archivedAt && !existing) {
+    throw new CoreError("BAD_REQUEST", "This habit is no longer available");
+  }
+
+  const config: HabitConfig = { ...definition.defaultConfig, ...input.config };
+  validateHabitConfig(definition.triggerType, config);
 
   const [row] = await ctx.db
     .insert(Habit)
     .values({
       userId,
-      kind: input.kind,
-      triggerType: def.triggerType,
+      definitionId: input.definitionId,
       enabled: input.enabled,
       config,
     })
     .onConflictDoUpdate({
-      target: [Habit.userId, Habit.kind],
+      target: [Habit.userId, Habit.definitionId],
       set: { enabled: input.enabled, config },
     })
     .returning();

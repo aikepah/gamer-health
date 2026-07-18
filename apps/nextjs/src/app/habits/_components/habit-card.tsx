@@ -13,7 +13,7 @@ import { useTRPC } from "~/trpc/react";
 
 type HabitItem = RouterOutputs["habit"]["list"][number];
 
-/** One catalog habit: enable switch + kind-specific config inputs + Save. */
+/** One catalog habit: enable switch + trigger-type-specific config inputs + Save. */
 export function HabitCard({ item }: { item: HabitItem }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -43,19 +43,23 @@ export function HabitCard({ item }: { item: HabitItem }) {
   function handleSave() {
     if (item.triggerType === "session_interval") {
       upsert.mutate({
-        kind: item.kind,
+        definitionId: item.definitionId,
         enabled,
         config: { intervalMinutes },
       });
       return;
     }
-    if (item.kind === "daily_movement") {
-      upsert.mutate({ kind: item.kind, enabled, config: { timeOfDay } });
+    if (item.triggerType === "daily_schedule") {
+      upsert.mutate({
+        definitionId: item.definitionId,
+        enabled,
+        config: { timeOfDay },
+      });
       return;
     }
-    // item.kind === "bedtime_cutoff"
+    // item.triggerType === "bedtime_cutoff"
     upsert.mutate({
-      kind: item.kind,
+      definitionId: item.definitionId,
       enabled,
       config: { bedtime, leadMinutes },
     });
@@ -65,7 +69,14 @@ export function HabitCard({ item }: { item: HabitItem }) {
     <div className="border-border rounded-lg border p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-semibold">{item.title}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-semibold">{item.title}</p>
+            {item.archived && (
+              <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-xs">
+                Archived
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground text-sm">{item.description}</p>
         </div>
         <Button
@@ -82,9 +93,11 @@ export function HabitCard({ item }: { item: HabitItem }) {
       <div className="mt-4 flex flex-wrap items-end gap-4">
         {item.triggerType === "session_interval" && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor={`${item.kind}-interval`}>Every (minutes)</Label>
+            <Label htmlFor={`${item.definitionId}-interval`}>
+              Every (minutes)
+            </Label>
             <Input
-              id={`${item.kind}-interval`}
+              id={`${item.definitionId}-interval`}
               type="number"
               min={5}
               max={240}
@@ -95,11 +108,11 @@ export function HabitCard({ item }: { item: HabitItem }) {
           </div>
         )}
 
-        {item.kind === "daily_movement" && (
+        {item.triggerType === "daily_schedule" && (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="daily_movement-time">Time of day</Label>
+            <Label htmlFor={`${item.definitionId}-time`}>Time of day</Label>
             <Input
-              id="daily_movement-time"
+              id={`${item.definitionId}-time`}
               type="time"
               value={timeOfDay}
               onChange={(e) => setTimeOfDay(e.target.value)}
@@ -108,12 +121,12 @@ export function HabitCard({ item }: { item: HabitItem }) {
           </div>
         )}
 
-        {item.kind === "bedtime_cutoff" && (
+        {item.triggerType === "bedtime_cutoff" && (
           <>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bedtime_cutoff-bedtime">Bedtime</Label>
+              <Label htmlFor={`${item.definitionId}-bedtime`}>Bedtime</Label>
               <Input
-                id="bedtime_cutoff-bedtime"
+                id={`${item.definitionId}-bedtime`}
                 type="time"
                 value={bedtime}
                 onChange={(e) => setBedtime(e.target.value)}
@@ -121,9 +134,11 @@ export function HabitCard({ item }: { item: HabitItem }) {
               />
             </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="bedtime_cutoff-lead">Lead time (minutes)</Label>
+              <Label htmlFor={`${item.definitionId}-lead`}>
+                Lead time (minutes)
+              </Label>
               <Input
-                id="bedtime_cutoff-lead"
+                id={`${item.definitionId}-lead`}
                 type="number"
                 min={0}
                 max={240}

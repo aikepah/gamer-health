@@ -85,12 +85,6 @@ export type {
   GetPlaytimeVsWellnessInput,
   PlaytimeVsWellnessDay,
 } from "./dashboard/getPlaytimeVsWellness";
-export {
-  HABIT_DEFINITIONS,
-  HABIT_KINDS,
-  habitKindSchema,
-} from "./habits/definitions";
-export type { HabitDefinition, HabitKind } from "./habits/definitions";
 export { listHabits } from "./habits/listHabits";
 export type { ListHabitsItem } from "./habits/listHabits";
 export {
@@ -111,6 +105,7 @@ export type {
 } from "./habits/syncHabitPrompts";
 export { upsertHabit, upsertHabitInput } from "./habits/upsertHabit";
 export type { HabitRow, UpsertHabitInput } from "./habits/upsertHabit";
+export { validateHabitConfig } from "./habits/validateHabitConfig";
 export { getOrCreateProfile } from "./profile/getOrCreateProfile";
 export type { ProfileRow } from "./profile/getOrCreateProfile";
 export { updateProfile, updateProfileInput } from "./profile/updateProfile";

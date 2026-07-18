@@ -6,19 +6,67 @@ import type { HabitPromptRow } from "./respondToPrompt";
 import type { HabitRow } from "./upsertHabit";
 import { syncHabitPrompts } from "./syncHabitPrompts";
 
-function makeHabitRow(overrides: Partial<HabitRow> = {}): HabitRow {
+type HabitDefinitionRow = Awaited<
+  ReturnType<ServiceCtx["db"]["query"]["HabitDefinition"]["findFirst"]>
+>;
+type DefRow = NonNullable<HabitDefinitionRow>;
+
+function makeDefRow(overrides: Partial<DefRow> = {}): DefRow {
+  return {
+    id: "def_hydrate",
+    slug: "hydrate",
+    title: "Hydration Reminder",
+    description: "Stay hydrated.",
+    promptText: "Drink some water",
+    triggerType: "session_interval",
+    defaultConfig: {},
+    isDefault: true,
+    createdByUserId: null,
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  } as DefRow;
+}
+
+const BREAK_DEF = makeDefRow({
+  id: "def_break",
+  slug: "break_interval",
+  title: "Break Reminder",
+  promptText: "Take a 5-minute break",
+  triggerType: "session_interval",
+});
+const HYDRATE_DEF = makeDefRow();
+const DAILY_MOVEMENT_DEF = makeDefRow({
+  id: "def_movement",
+  slug: "daily_movement",
+  title: "Daily Movement",
+  promptText: "Get 20 minutes of movement",
+  triggerType: "daily_schedule",
+});
+const BEDTIME_DEF = makeDefRow({
+  id: "def_bedtime",
+  slug: "bedtime_cutoff",
+  title: "Bedtime Cutoff",
+  promptText: "Start winding down — bedtime soon",
+  triggerType: "bedtime_cutoff",
+});
+
+function makeHabitRow(
+  def: DefRow,
+  overrides: Partial<Omit<HabitRow, "definitionId">> = {},
+): HabitRow & { definition: DefRow } {
   return {
     id: "habit_1",
     userId: "user_1",
-    kind: "hydrate",
-    triggerType: "session_interval",
-    definitionId: null,
+    definitionId: def.id,
     assignedByUserId: null,
     enabled: true,
     config: {},
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
+    definition: def,
   };
 }
 
@@ -39,12 +87,14 @@ function makeSessionRow(
   };
 }
 
+type HabitWithDef = HabitRow & { definition: DefRow };
+
 function makePendingRow(
   overrides: Partial<HabitPromptRow> & {
-    habit: HabitRow;
+    habit: HabitWithDef;
     session?: GameSessionRow | null;
   },
-): HabitPromptRow & { habit: HabitRow; session: GameSessionRow | null } {
+): HabitPromptRow & { habit: HabitWithDef; session: GameSessionRow | null } {
   return {
     id: "prompt_1",
     habitId: overrides.habit.id,
@@ -62,10 +112,10 @@ function makePendingRow(
 interface CtxOptions {
   userId: string | null;
   profileTimezone?: string | null;
-  habits?: HabitRow[];
+  habits?: HabitWithDef[];
   activeSession?: GameSessionRow;
   pendingRows?: (HabitPromptRow & {
-    habit: HabitRow;
+    habit: HabitWithDef;
     session: GameSessionRow | null;
   })[];
 }
@@ -136,10 +186,8 @@ describe("syncHabitPrompts — generation", () => {
   });
 
   it("generates session-interval occurrences up to now and stops there", async () => {
-    const habit = makeHabitRow({
+    const habit = makeHabitRow(BREAK_DEF, {
       id: "habit_break",
-      kind: "break_interval",
-      triggerType: "session_interval",
       config: { intervalMinutes: 50 },
     });
     // 125 minutes elapsed: k=1 (50m) and k=2 (100m) are due; k=3 (150m) is not.
@@ -171,7 +219,7 @@ describe("syncHabitPrompts — generation", () => {
   });
 
   it("does not generate session-interval prompts without an active session", async () => {
-    const habit = makeHabitRow({ triggerType: "session_interval" });
+    const habit = makeHabitRow(HYDRATE_DEF);
     const { ctx, insert } = makeCtx({ userId: "user_1", habits: [habit] });
 
     await syncHabitPrompts(ctx, { now: new Date("2026-07-15T10:00:00Z") });
@@ -179,11 +227,9 @@ describe("syncHabitPrompts — generation", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
-  it("generates a daily_movement prompt once its time of day has passed, with no session required", async () => {
-    const habit = makeHabitRow({
+  it("generates a daily_schedule prompt once its time of day has passed, with no session required", async () => {
+    const habit = makeHabitRow(DAILY_MOVEMENT_DEF, {
       id: "habit_movement",
-      kind: "daily_movement",
-      triggerType: "daily_schedule",
       config: { timeOfDay: "09:00" },
     });
     const { ctx, insertedBatches } = makeCtx({
@@ -202,10 +248,8 @@ describe("syncHabitPrompts — generation", () => {
     expect(candidate?.dueAt.toISOString()).toBe("2026-07-15T09:00:00.000Z");
   });
 
-  it("does not generate daily_movement before its time of day", async () => {
-    const habit = makeHabitRow({
-      kind: "daily_movement",
-      triggerType: "daily_schedule",
+  it("does not generate daily_schedule before its time of day", async () => {
+    const habit = makeHabitRow(DAILY_MOVEMENT_DEF, {
       config: { timeOfDay: "09:00" },
     });
     const { ctx, insert } = makeCtx({ userId: "user_1", habits: [habit] });
@@ -215,11 +259,33 @@ describe("syncHabitPrompts — generation", () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
-  it("generates bedtime_cutoff only when an active session is present and past due", async () => {
-    const habit = makeHabitRow({
-      id: "habit_bedtime",
-      kind: "bedtime_cutoff",
+  it("proves an out-of-game daily_schedule definition generates prompts identically (zero engine special-casing)", async () => {
+    const outOfGameDef = makeDefRow({
+      id: "def_meal",
+      slug: null,
+      title: "Eat a real meal",
+      promptText: "Eat something",
       triggerType: "daily_schedule",
+    });
+    const habit = makeHabitRow(outOfGameDef, {
+      id: "habit_meal",
+      config: { timeOfDay: "12:00" },
+    });
+    const { ctx, insertedBatches } = makeCtx({
+      userId: "user_1",
+      habits: [habit],
+    });
+
+    await syncHabitPrompts(ctx, { now: new Date("2026-07-15T13:00:00Z") });
+
+    expect(insertedBatches).toHaveLength(1);
+    const [candidate] = insertedBatches[0] as { dueAt: Date }[];
+    expect(candidate?.dueAt.toISOString()).toBe("2026-07-15T12:00:00.000Z");
+  });
+
+  it("generates bedtime_cutoff only when an active session is present and past due", async () => {
+    const habit = makeHabitRow(BEDTIME_DEF, {
+      id: "habit_bedtime",
       config: { bedtime: "23:00", leadMinutes: 60 },
     });
     const now = new Date("2026-07-15T22:30:00Z"); // past the 22:00 due time
@@ -240,9 +306,7 @@ describe("syncHabitPrompts — generation", () => {
   });
 
   it("falls back to UTC when the profile has no saved timezone", async () => {
-    const habit = makeHabitRow({
-      kind: "daily_movement",
-      triggerType: "daily_schedule",
+    const habit = makeHabitRow(DAILY_MOVEMENT_DEF, {
       config: { timeOfDay: "09:00" },
     });
     const { ctx, insertedBatches } = makeCtx({
@@ -260,11 +324,7 @@ describe("syncHabitPrompts — generation", () => {
 
 describe("syncHabitPrompts — expiry and return shape", () => {
   it("expires a session-interval prompt once its session has ended, and excludes it from pending", async () => {
-    const habit = makeHabitRow({
-      id: "habit_hydrate",
-      kind: "hydrate",
-      triggerType: "session_interval",
-    });
+    const habit = makeHabitRow(HYDRATE_DEF, { id: "habit_hydrate" });
     const endedSession = makeSessionRow({
       id: "session_ended",
       endedAt: new Date("2026-07-15T09:30:00Z"),
@@ -291,10 +351,8 @@ describe("syncHabitPrompts — expiry and return shape", () => {
   });
 
   it("expires a bedtime_cutoff prompt once now is past dueAt + leadMinutes (i.e. past bedtime)", async () => {
-    const habit = makeHabitRow({
+    const habit = makeHabitRow(BEDTIME_DEF, {
       id: "habit_bedtime",
-      kind: "bedtime_cutoff",
-      triggerType: "daily_schedule",
       config: { bedtime: "23:00", leadMinutes: 60 },
     });
     // dueAt (22:00) + leadMinutes (60) = 23:00 (bedtime).
@@ -317,11 +375,9 @@ describe("syncHabitPrompts — expiry and return shape", () => {
     expect(before.pending).toHaveLength(1);
   });
 
-  it("expires a daily_movement prompt at the end of its local day", async () => {
-    const habit = makeHabitRow({
+  it("expires a daily_schedule prompt at the end of its local day", async () => {
+    const habit = makeHabitRow(DAILY_MOVEMENT_DEF, {
       id: "habit_movement",
-      kind: "daily_movement",
-      triggerType: "daily_schedule",
       config: { timeOfDay: "09:00" },
     });
     const row = makePendingRow({
@@ -339,11 +395,7 @@ describe("syncHabitPrompts — expiry and return shape", () => {
   });
 
   it("expires any pending prompt older than the 60-minute general backstop", async () => {
-    const habit = makeHabitRow({
-      id: "habit_hydrate",
-      kind: "hydrate",
-      triggerType: "session_interval",
-    });
+    const habit = makeHabitRow(HYDRATE_DEF, { id: "habit_hydrate" });
     const activeSession = makeSessionRow({ endedAt: null });
     const row = makePendingRow({
       id: "prompt_stale",
@@ -365,17 +417,9 @@ describe("syncHabitPrompts — expiry and return shape", () => {
     expect(result.pending).toHaveLength(0);
   });
 
-  it("returns still-pending, due prompts sorted by dueAt asc, decorated with title/promptText", async () => {
-    const hydrateHabit = makeHabitRow({
-      id: "habit_hydrate",
-      kind: "hydrate",
-      triggerType: "session_interval",
-    });
-    const breakHabit = makeHabitRow({
-      id: "habit_break",
-      kind: "break_interval",
-      triggerType: "session_interval",
-    });
+  it("returns still-pending, due prompts sorted by dueAt asc, decorated with title/promptText from the joined definition", async () => {
+    const hydrateHabit = makeHabitRow(HYDRATE_DEF, { id: "habit_hydrate" });
+    const breakHabit = makeHabitRow(BREAK_DEF, { id: "habit_break" });
     const activeSession = makeSessionRow({ endedAt: null });
 
     const later = makePendingRow({
@@ -413,14 +457,15 @@ describe("syncHabitPrompts — expiry and return shape", () => {
       title: "Break Reminder",
       promptText: "Take a 5-minute break",
     });
+    // The definition is unwrapped off the returned habit — no leaked nesting.
+    expect(
+      (result.pending[0]?.habit as unknown as { definition?: unknown })
+        .definition,
+    ).toBeUndefined();
   });
 
   it("excludes not-yet-due pending prompts from the result without expiring them", async () => {
-    const habit = makeHabitRow({
-      id: "habit_hydrate",
-      kind: "hydrate",
-      triggerType: "session_interval",
-    });
+    const habit = makeHabitRow(HYDRATE_DEF, { id: "habit_hydrate" });
     const activeSession = makeSessionRow({ endedAt: null });
     const futureRow = makePendingRow({
       id: "prompt_future",

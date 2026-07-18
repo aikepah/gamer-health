@@ -5,17 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "~/trpc/react";
 import { ChartCard, ChartEmptyState, ChartSkeleton } from "./chart-card";
 
-const KIND_LABELS: Record<string, string> = {
-  break_interval: "Break Reminder",
-  hydrate: "Hydration",
-  stretch: "Stretch",
-  posture: "Posture",
-  bedtime_cutoff: "Bedtime Cutoff",
-  daily_movement: "Daily Movement",
-};
-
 /**
- * Completion-rate stat + per-kind done/total bars, last 7 days.
+ * Completion-rate stat + per-habit done/total bars, last 7 days.
  * Presentation-only — fetches via `dashboard.habitCompletion` (defaults to 7
  * days server-side).
  */
@@ -50,12 +41,12 @@ export function HabitCompletionCard() {
         </p>
       </div>
       <div className="mt-4 flex flex-col gap-3">
-        {data.byKind.map((k) => {
+        {data.byHabit.map((k) => {
           const pct = k.total === 0 ? 0 : Math.round((k.done / k.total) * 100);
           return (
-            <div key={k.kind}>
+            <div key={k.definitionId}>
               <div className="flex justify-between text-xs">
-                <span>{KIND_LABELS[k.kind] ?? k.kind}</span>
+                <span>{k.title}</span>
                 <span className="text-muted-foreground">
                   {k.done}/{k.total}
                 </span>
