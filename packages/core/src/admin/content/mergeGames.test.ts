@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { Game, GameSession } from "@gamer-health/db/schema";
+import { CoachGame, Game, GameSession } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
 import type { GameRow } from "../../sessions/games";
@@ -38,6 +38,8 @@ function makeCtx(config: {
   const gameSessionUpdateSet = vi.fn();
   const gameUpdateSet = vi.fn();
   const gameDeleteWhere = vi.fn();
+  const coachGameDeleteWhere = vi.fn();
+  const executeSql = vi.fn().mockResolvedValue(undefined);
 
   const tx = {
     update: vi.fn((table: unknown) => {
@@ -67,18 +69,29 @@ function makeCtx(config: {
       }
       throw new Error("unexpected update table in test");
     }),
-    delete: vi.fn(() => ({
-      where: vi.fn((cond: unknown) => {
-        gameDeleteWhere(cond);
-        return Promise.resolve(undefined);
-      }),
-    })),
+    delete: vi.fn((table: unknown) => {
+      if (table === CoachGame) {
+        return {
+          where: vi.fn((cond: unknown) => {
+            coachGameDeleteWhere(cond);
+            return Promise.resolve(undefined);
+          }),
+        };
+      }
+      return {
+        where: vi.fn((cond: unknown) => {
+          gameDeleteWhere(cond);
+          return Promise.resolve(undefined);
+        }),
+      };
+    }),
     insert: vi.fn(() => ({
       values: vi.fn((vals: Record<string, unknown>) => {
         auditInsertValues(vals);
         return Promise.resolve(undefined);
       }),
     })),
+    execute: executeSql,
   };
 
   const db = {
@@ -95,6 +108,8 @@ function makeCtx(config: {
     gameSessionUpdateSet,
     gameUpdateSet,
     gameDeleteWhere,
+    coachGameDeleteWhere,
+    executeSql,
   };
 }
 
@@ -213,7 +228,7 @@ describe("mergeGames", () => {
   it("throws CoreError(CONFLICT) before any write when both games have different steamAppIds", async () => {
     const source = makeRow({ id: "game_source", steamAppId: 111 });
     const target = makeRow({ id: "game_target", steamAppId: 222 });
-    const { ctx, gameDeleteWhere, gameSessionUpdateSet } = makeCtx({
+    const { ctx, gameDeleteWhere, gameSessionUpdateSet, executeSql } = makeCtx({
       actorProfile: { role: "admin", deactivatedAt: null },
       source,
       target,
@@ -227,5 +242,30 @@ describe("mergeGames", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(gameSessionUpdateSet).not.toHaveBeenCalled();
     expect(gameDeleteWhere).not.toHaveBeenCalled();
+    expect(executeSql).not.toHaveBeenCalled();
+  });
+
+  it("repoints coach_game rows via insert-select before deleting the source's rows (#9 interop)", async () => {
+    const source = makeRow({ id: "game_source" });
+    const target = makeRow({ id: "game_target" });
+    const { ctx, executeSql, coachGameDeleteWhere } = makeCtx({
+      actorProfile: { role: "admin", deactivatedAt: null },
+      source,
+      target,
+    });
+
+    await mergeGames(ctx, {
+      sourceGameId: "game_source",
+      targetGameId: "game_target",
+    });
+
+    // The insert-select repoint runs before the source's coach_game rows are
+    // deleted — a plain UPDATE would violate the PK when a coach already
+    // coaches both games, hence insert-then-delete.
+    expect(executeSql).toHaveBeenCalledOnce();
+    expect(coachGameDeleteWhere).toHaveBeenCalledOnce();
+    const executeOrder = executeSql.mock.invocationCallOrder[0] ?? 0;
+    const deleteOrder = coachGameDeleteWhere.mock.invocationCallOrder[0] ?? 0;
+    expect(executeOrder).toBeLessThan(deleteOrder);
   });
 });

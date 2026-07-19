@@ -41,6 +41,29 @@ export function formatMinutesAsHours(minutes: number): string {
   return `${(minutes / 60).toFixed(1)}h`;
 }
 
+/** Parses an `<input type="time">` value ("HH:MM") into minutes-from-midnight. */
+export function minutesFromTimeString(value: string): number {
+  const [hours, minutes] = value.split(":").map(Number);
+  return (hours ?? 0) * 60 + (minutes ?? 0);
+}
+
+/** Formats minutes-from-midnight (0-1440) as an `<input type="time">` value ("HH:MM"). */
+export function timeStringFromMinutes(minutes: number): string {
+  const clamped = Math.min(1439, Math.max(0, minutes));
+  const hours = Math.floor(clamped / 60);
+  const mins = clamped % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+}
+
+/** Formats minutes-from-midnight (0-1440) as a 12-hour clock label, e.g. "5:00 PM". */
+export function formatMinuteOfDay(minutes: number): string {
+  const totalHours24 = Math.floor(minutes / 60) % 24;
+  const mins = minutes % 60;
+  const period = totalHours24 < 12 ? "AM" : "PM";
+  const hours12 = totalHours24 % 12 === 0 ? 12 : totalHours24 % 12;
+  return `${hours12}:${mins.toString().padStart(2, "0")} ${period}`;
+}
+
 /** Formats a "YYYY-MM-DD" local-date string as a short chart label, e.g. "Jul 14". */
 export function formatDateLabel(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);

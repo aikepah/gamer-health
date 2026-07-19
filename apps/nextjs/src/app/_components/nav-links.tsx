@@ -13,12 +13,27 @@ const LINKS = [
   { href: "/settings", label: "Settings" },
 ] as const;
 
-/** Rendered only for admins — coach nav has no pages yet in wave 1 (#4). */
 const ADMIN_LINK = { href: "/admin", label: "Admin" } as const;
 
-export function NavLinks({ isAdmin }: { isAdmin: boolean }) {
+/**
+ * Rendered only for coaches (#9). #10–#15 append their own entries here
+ * (e.g. "Players", "Sessions") as those routes land.
+ */
+const COACH_LINKS = [{ href: "/coach/profile", label: "Coach" }] as const;
+
+export function NavLinks({
+  isAdmin,
+  isCoach,
+}: {
+  isAdmin: boolean;
+  isCoach: boolean;
+}) {
   const pathname = usePathname();
-  const links = isAdmin ? [...LINKS, ADMIN_LINK] : LINKS;
+  const links = [
+    ...LINKS,
+    ...(isCoach ? COACH_LINKS : []),
+    ...(isAdmin ? [ADMIN_LINK] : []),
+  ];
 
   return (
     <nav className="flex items-center gap-1 overflow-x-auto">

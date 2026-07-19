@@ -243,3 +243,53 @@ export {
 export type { RevokeCoachInviteInput } from "./invites/revokeCoachInvite";
 export { coachInviteStatus } from "./invites/status";
 export type { CoachInviteStatus } from "./invites/status";
+export {
+  buildCoachProfileDetail,
+  ensureCoachProfileRow,
+  fetchCoachIdentity,
+  getOrCreateCoachProfile,
+} from "./coaching/profile/getOrCreateCoachProfile";
+export type {
+  AvailabilityBlock,
+  CoachProfileDetail,
+  CoachProfileRow,
+} from "./coaching/profile/getOrCreateCoachProfile";
+export {
+  updateCoachProfile,
+  updateCoachProfileInput,
+} from "./coaching/profile/updateCoachProfile";
+export type { UpdateCoachProfileInput } from "./coaching/profile/updateCoachProfile";
+export {
+  setCoachPublished,
+  setCoachPublishedInput,
+} from "./coaching/profile/setCoachPublished";
+export type { SetCoachPublishedInput } from "./coaching/profile/setCoachPublished";
+export {
+  setCoachAcceptingApplications,
+  setCoachAcceptingApplicationsInput,
+} from "./coaching/profile/setCoachAcceptingApplications";
+export type { SetCoachAcceptingApplicationsInput } from "./coaching/profile/setCoachAcceptingApplications";
+export {
+  setCoachGames,
+  setCoachGamesInput,
+} from "./coaching/profile/setCoachGames";
+export type { SetCoachGamesInput } from "./coaching/profile/setCoachGames";
+export {
+  availabilityBlockInput,
+  setCoachAvailability,
+  setCoachAvailabilityInput,
+} from "./coaching/profile/setCoachAvailability";
+export type {
+  AvailabilityBlockInput,
+  SetCoachAvailabilityInput,
+} from "./coaching/profile/setCoachAvailability";
+export {
+  getCoachAvailability,
+  getCoachAvailabilityInput,
+} from "./coaching/profile/getCoachAvailability";
+export type { GetCoachAvailabilityInput } from "./coaching/profile/getCoachAvailability";
+export {
+  getPublicCoachProfile,
+  getPublicCoachProfileInput,
+} from "./coaching/profile/getPublicCoachProfile";
+export type { GetPublicCoachProfileInput } from "./coaching/profile/getPublicCoachProfile";

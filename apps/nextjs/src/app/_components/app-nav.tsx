@@ -23,7 +23,12 @@ export async function AppNav() {
           Gamer <span className="text-primary">Health</span>
         </Link>
 
-        {session && <NavLinks isAdmin={authz?.role === "admin"} />}
+        {session && (
+          <NavLinks
+            isAdmin={authz?.role === "admin"}
+            isCoach={authz?.role === "coach"}
+          />
+        )}
 
         <div className="flex items-center gap-2">
           <ThemeToggle />
