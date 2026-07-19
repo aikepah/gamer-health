@@ -20,6 +20,7 @@ export type GamingPlatform = (typeof GAMING_PLATFORMS)[number];
 export const USER_ROLES = ["player", "coach", "admin"] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
+export * from "./coaching";
 export * from "./gamification";
 export * from "./habits";
 

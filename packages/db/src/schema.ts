@@ -10,7 +10,14 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-import { GAMING_PLATFORMS, USER_ROLES } from "@gamer-health/validators";
+import {
+  COACH_SPECIALTIES,
+  COACHING_RELATIONSHIP_STATUSES,
+  COACHING_SESSION_STATUSES,
+  GAMING_PLATFORMS,
+  GOAL_STATUSES,
+  USER_ROLES,
+} from "@gamer-health/validators";
 
 import { user } from "./auth-schema";
 
@@ -53,6 +60,26 @@ export const checkinContextEnum = pgEnum("checkin_context", [
   "post_session",
   "daily",
 ]);
+
+/**
+ * Player↔coach relationship lifecycle (MVP 2 wave 2, #11). Values come from
+ * `COACHING_RELATIONSHIP_STATUSES` in @gamer-health/validators.
+ * `active` is the single state `assertCoachOf` keys on.
+ * NOTE: pg enum values are append-only; new values go at the end of the
+ * validators array (e.g. a future `pending_payment` gate on acceptance).
+ */
+export const coachingRelationshipStatusEnum = pgEnum(
+  "coaching_relationship_status",
+  [...COACHING_RELATIONSHIP_STATUSES],
+);
+
+/** Scheduled coaching appointment lifecycle (#15). Append-only. */
+export const coachingSessionStatusEnum = pgEnum("coaching_session_status", [
+  ...COACHING_SESSION_STATUSES,
+]);
+
+/** Coach-assigned goal lifecycle (#13). Append-only. */
+export const goalStatusEnum = pgEnum("goal_status", [...GOAL_STATUSES]);
 
 // ---------------------------------------------------------------------------
 // Profile — app-owned user data. Better Auth owns `user` (auth-schema.ts).
@@ -203,6 +230,391 @@ export const CoachInvite = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Coach profile (#9) — the public-facing coach record. 1:1 with `user`, but
+// only for users whose `profile.role` is `coach`; core creates it lazily
+// (getOrCreateCoachProfile) the first time a coach opens /coach/profile.
+//
+// Deliberately NOT merged into `profile`: `profile` is every user's private
+// app data, while this row is public (discovery, #10) and coach-only. Keeping
+// them apart means "is this coach discoverable" is one boolean on one table
+// and no player row carries dead coach columns.
+//
+// Availability times (coach_availability below) are wall-clock times in the
+// coach's `profile.timezone` — there is no separate coach timezone column, so
+// there is exactly one source of truth. Core requires a non-null
+// `profile.timezone` before `isPublished` can be set true.
+// ---------------------------------------------------------------------------
+
+export const CoachProfile = pgTable(
+  "coach_profile",
+  (t) => ({
+    userId: t
+      .text()
+      .primaryKey()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** One-line tagline shown on discovery cards. */
+    headline: t.varchar({ length: 120 }),
+    /** Long-form public bio (markdown not rendered — plain text in MVP). */
+    bio: t.text(),
+    /**
+     * Closed-set tags from `COACH_SPECIALTIES` (@gamer-health/validators).
+     * No DB default (drizzle-kit push churns on array defaults), same as
+     * `profile.platforms`; the Zod schema defaults it to [].
+     */
+    specialties: t.text().array().notNull(),
+    /**
+     * The discovery gate (#10): false = invisible in `/coaches` no matter
+     * what. A coach must have a timezone, a headline and >= 1 availability
+     * block to publish (enforced in core, not the DB).
+     */
+    isPublished: t.boolean().notNull().default(false),
+    /**
+     * Published but closed to new players: still listed and viewable, but
+     * `applyToCoach` (#10) rejects with CONFLICT. Separate from
+     * `isPublished` so a full roster doesn't have to delist.
+     */
+    acceptingApplications: t.boolean().notNull().default(true),
+    createdAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull()
+      .$onUpdateFn(() => new Date()),
+  }),
+  (table) => [index("coach_profile_published_idx").on(table.isPublished)],
+);
+
+export const UpsertCoachProfileSchema = createInsertSchema(CoachProfile, {
+  headline: z.string().trim().min(1).max(120).nullish(),
+  bio: z.string().max(4000).nullish(),
+  specialties: z.array(z.enum(COACH_SPECIALTIES)).max(8).default([]),
+}).omit({
+  userId: true, // from ctx
+  isPublished: true, // own service (setCoachPublished) — has preconditions
+  acceptingApplications: true, // own service
+  createdAt: true,
+  updatedAt: true,
+});
+
+// ---------------------------------------------------------------------------
+// Games a coach coaches (#9) — join table driving discovery's game filter.
+//
+// IMPORTANT (#7 interop): `mergeGames` must repoint these rows inside its
+// transaction (insert-select onConflictDoNothing into the target, then delete
+// the source rows) — a plain UPDATE would violate the PK when the coach
+// already coaches both games. See docs/features/coach-profiles.md.
+// ---------------------------------------------------------------------------
+
+export const CoachGame = pgTable(
+  "coach_game",
+  (t) => ({
+    coachUserId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    gameId: t
+      .uuid()
+      .notNull()
+      .references(() => Game.id, { onDelete: "cascade" }),
+    createdAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    primaryKey({ columns: [table.coachUserId, table.gameId] }),
+    // Discovery filters "coaches who coach game X"; the PK's leading column
+    // is the coach, so this reverse index carries that query.
+    index("coach_game_game_idx").on(table.gameId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Weekly recurring availability (#9) — the window scheduling (#15) validates
+// proposed slots against.
+//
+// Times are minutes from local midnight (0–1440) rather than `time` columns:
+// slot containment in #15 is then plain integer arithmetic with no time-type
+// parsing. Blocks never cross midnight (`endMinute > startMinute` is checked);
+// a 22:00–02:00 coach creates two blocks. Overlapping blocks on the same
+// weekday are rejected in core (the DB can't express that without btree_gist).
+// ---------------------------------------------------------------------------
+
+export const CoachAvailability = pgTable(
+  "coach_availability",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    coachUserId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** 0 = Sunday … 6 = Saturday (matches JS `Date#getDay()`). */
+    weekday: t.smallint().notNull(),
+    /** Inclusive start, minutes from local midnight (0–1439). */
+    startMinute: t.smallint().notNull(),
+    /** Exclusive end, minutes from local midnight (1–1440). */
+    endMinute: t.smallint().notNull(),
+    createdAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  }),
+  (table) => [
+    index("coach_availability_coach_weekday_idx").on(
+      table.coachUserId,
+      table.weekday,
+    ),
+    // Cheap dedupe of identical blocks; genuine overlap is core's job.
+    uniqueIndex("coach_availability_unique_block_idx").on(
+      table.coachUserId,
+      table.weekday,
+      table.startMinute,
+    ),
+    check(
+      "coach_availability_weekday_check",
+      sql`${table.weekday} BETWEEN 0 AND 6`,
+    ),
+    check(
+      "coach_availability_range_check",
+      sql`${table.startMinute} >= 0 AND ${table.endMinute} <= 1440 AND ${table.endMinute} > ${table.startMinute}`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Coaching relationship (#11) — the player↔coach lifecycle, and the table
+// `assertCoachOf` reads. See docs/features/coaching-relationships.md.
+//
+// Fixed decisions (architect):
+//  - A player has AT MOST ONE `active` coach, enforced by a partial unique
+//    index. Every wave-2 feature ("their coach", goal ownership, habit
+//    assignment, scheduling) is written in the singular, and a single active
+//    row keeps `assertCoachOf` a one-row lookup.
+//  - A player MAY have several `applied` rows at once (to different coaches)
+//    — discovery is useless if you can only shop one coach at a time. When a
+//    coach accepts, core auto-declines the player's other `applied` rows in
+//    the same transaction, so the one-active index is never the thing that
+//    surfaces the conflict.
+//  - Rows are never deleted; terminal states (`declined`, `ended`) are the
+//    history. Re-applying to the same coach after an `ended` relationship
+//    creates a NEW row (the open-pair index only covers applied/active).
+//  - Payment gate insertion point: `acceptCoachApplication` is the ONLY
+//    writer of `status = 'active'`. A future subscription check goes at the
+//    top of its transaction; no payment columns exist today.
+// ---------------------------------------------------------------------------
+
+export const CoachingRelationship = pgTable(
+  "coaching_relationship",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    playerUserId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    coachUserId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    status: coachingRelationshipStatusEnum().notNull().default("applied"),
+    /** Who created the row. Always the player in MVP (coach-initiated invites are post-MVP). */
+    initiatedByUserId: t
+      .text()
+      .references(() => user.id, { onDelete: "set null" }),
+    /** The player's application message. */
+    message: t.text(),
+    /** Coach's decline reason, or the auto-decline note when another coach was chosen. */
+    responseNote: t.varchar({ length: 500 }),
+    /** Reason recorded when an active relationship is ended. */
+    endReason: t.varchar({ length: 500 }),
+    appliedAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    /** When the coach accepted or declined. */
+    respondedAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    /** When the relationship became active (equals respondedAt on accept). */
+    startedAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    endedAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    endedByUserId: t.text().references(() => user.id, { onDelete: "set null" }),
+    createdAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull()
+      .$onUpdateFn(() => new Date()),
+  }),
+  (table) => [
+    // AT MOST ONE active coach per player — the invariant assertCoachOf and
+    // all of #12–#15 rely on.
+    uniqueIndex("coaching_relationship_one_active_per_player_idx")
+      .on(table.playerUserId)
+      .where(sql`${table.status} = 'active'`),
+    // No duplicate open applications to the same coach.
+    uniqueIndex("coaching_relationship_open_pair_idx")
+      .on(table.playerUserId, table.coachUserId)
+      .where(sql`${table.status} IN ('applied', 'active')`),
+    // Roster + application inbox for a coach.
+    index("coaching_relationship_coach_status_idx").on(
+      table.coachUserId,
+      table.status,
+      table.appliedAt.desc(),
+    ),
+    // "My coach" card + application list for a player.
+    index("coaching_relationship_player_status_idx").on(
+      table.playerUserId,
+      table.status,
+      table.appliedAt.desc(),
+    ),
+    check(
+      "coaching_relationship_distinct_parties_check",
+      sql`${table.playerUserId} <> ${table.coachUserId}`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Goals (#13) — coach-assigned objectives a player tracks.
+// `relationshipId` records provenance; goals SURVIVE the relationship ending
+// (the player keeps them, the coach just loses visibility), which is why it
+// is `set null` rather than cascade.
+// ---------------------------------------------------------------------------
+
+export const Goal = pgTable(
+  "goal",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    playerUserId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /**
+     * The coach who assigned it. Nullable so a deleted coach account doesn't
+     * take the player's goals with it — and so player-authored self-goals
+     * (post-MVP) fit without a migration. #13 always sets it.
+     */
+    assignedByUserId: t
+      .text()
+      .references(() => user.id, { onDelete: "set null" }),
+    relationshipId: t.uuid().references(() => CoachingRelationship.id, {
+      onDelete: "set null",
+    }),
+    title: t.varchar({ length: 160 }).notNull(),
+    description: t.text(),
+    /** Optional local calendar due date, "YYYY-MM-DD" (no time component). */
+    targetDate: t.date({ mode: "string" }),
+    status: goalStatusEnum().notNull().default("open"),
+    /** Player-editable free-text progress note — "tracking" in MVP is this plus status. */
+    progressNote: t.text(),
+    /** Set when status leaves `open`; cleared if it is reopened. */
+    closedAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    createdAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull()
+      .$onUpdateFn(() => new Date()),
+  }),
+  (table) => [
+    index("goal_player_status_idx").on(
+      table.playerUserId,
+      table.status,
+      table.targetDate,
+    ),
+    index("goal_assigned_by_status_idx").on(
+      table.assignedByUserId,
+      table.status,
+    ),
+    check(
+      "goal_closed_at_check",
+      sql`(${table.status} = 'open') = (${table.closedAt} IS NULL)`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Coaching sessions (#15) — scheduled appointments between a player and their
+// coach. `startsAt`/`endsAt` are absolute instants; the coach's weekly
+// availability is wall-clock, so validation converts the instant into the
+// coach's `profile.timezone` before the containment check.
+//
+// `playerUserId`/`coachUserId` are denormalized from the relationship (like
+// `habit_prompt.userId` from `habit`) so both sides' "upcoming" lists are a
+// single indexed scan with no join.
+//
+// Overlap is enforced in core, not the DB: excluding overlapping ranges needs
+// a btree_gist EXCLUDE constraint, which drizzle-kit push can't express.
+// ---------------------------------------------------------------------------
+
+export const CoachingSession = pgTable(
+  "coaching_session",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    relationshipId: t
+      .uuid()
+      .notNull()
+      .references(() => CoachingRelationship.id, { onDelete: "cascade" }),
+    playerUserId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    coachUserId: t
+      .text()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** Always the player in MVP; column exists so coach-proposed slots need no migration. */
+    proposedByUserId: t
+      .text()
+      .references(() => user.id, { onDelete: "set null" }),
+    startsAt: t.timestamp({ withTimezone: true, mode: "date" }).notNull(),
+    endsAt: t.timestamp({ withTimezone: true, mode: "date" }).notNull(),
+    status: coachingSessionStatusEnum().notNull().default("proposed"),
+    /** Player's agenda note on proposal. */
+    note: t.text(),
+    confirmedAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    cancelledAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    cancelledByUserId: t
+      .text()
+      .references(() => user.id, { onDelete: "set null" }),
+    /** Distinguishes a coach decline (confirmedAt null) from a later cancel. */
+    cancelReason: t.varchar({ length: 500 }),
+    completedAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    createdAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull()
+      .$onUpdateFn(() => new Date()),
+  }),
+  (table) => [
+    index("coaching_session_coach_starts_idx").on(
+      table.coachUserId,
+      table.startsAt,
+    ),
+    index("coaching_session_player_starts_idx").on(
+      table.playerUserId,
+      table.startsAt,
+    ),
+    index("coaching_session_relationship_idx").on(table.relationshipId),
+    check(
+      "coaching_session_time_order_check",
+      sql`${table.endsAt} > ${table.startsAt}`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // Games — simple catalog (seeded list + user free-text additions).
 // steamAppId anticipates post-MVP Steam sync.
 // ---------------------------------------------------------------------------
@@ -336,38 +748,48 @@ export const HabitConfigSchema = z.object({
 // instance of. See docs/features/habit-generalization.md.
 // ---------------------------------------------------------------------------
 
-export const HabitDefinition = pgTable("habit_definition", (t) => ({
-  id: t.uuid().notNull().primaryKey().defaultRandom(),
-  /**
-   * Stable code-facing key for built-ins only (matches the old habit_kind
-   * values, e.g. "hydrate"); null for admin/coach-created definitions.
-   * Gamification keys streaks off this (meta.habitKind = slug ?? null), and
-   * seed/migration upsert built-ins by it. Unique constraint (nulls distinct).
-   */
-  slug: t.varchar({ length: 64 }).unique(),
-  title: t.varchar({ length: 120 }).notNull(),
-  description: t.text().notNull(),
-  /** Shown on generated prompts. */
-  promptText: t.varchar({ length: 200 }).notNull(),
-  /** Immutable after creation — config validation and prompt semantics hang off it. */
-  triggerType: habitTriggerTypeEnum().notNull(),
-  defaultConfig: t.jsonb().$type<HabitConfig>().notNull().default({}),
-  /** True = offered to every player in the catalog (built-ins + admin defaults). */
-  isDefault: t.boolean().notNull().default(false),
-  /** Null = system built-in; else the admin (or wave-2 coach) who created it. */
-  createdByUserId: t.text().references(() => user.id, { onDelete: "set null" }),
-  /** Soft-retire from the adopt list; existing user habits keep working. */
-  archivedAt: t.timestamp({ withTimezone: true, mode: "date" }),
-  createdAt: t
-    .timestamp({ withTimezone: true, mode: "date" })
-    .defaultNow()
-    .notNull(),
-  updatedAt: t
-    .timestamp({ withTimezone: true, mode: "date" })
-    .defaultNow()
-    .notNull()
-    .$onUpdateFn(() => new Date()),
-}));
+export const HabitDefinition = pgTable(
+  "habit_definition",
+  (t) => ({
+    id: t.uuid().notNull().primaryKey().defaultRandom(),
+    /**
+     * Stable code-facing key for built-ins only (matches the old habit_kind
+     * values, e.g. "hydrate"); null for admin/coach-created definitions.
+     * Gamification keys streaks off this (meta.habitKind = slug ?? null), and
+     * seed/migration upsert built-ins by it. Unique constraint (nulls distinct).
+     */
+    slug: t.varchar({ length: 64 }).unique(),
+    title: t.varchar({ length: 120 }).notNull(),
+    description: t.text().notNull(),
+    /** Shown on generated prompts. */
+    promptText: t.varchar({ length: 200 }).notNull(),
+    /** Immutable after creation — config validation and prompt semantics hang off it. */
+    triggerType: habitTriggerTypeEnum().notNull(),
+    defaultConfig: t.jsonb().$type<HabitConfig>().notNull().default({}),
+    /** True = offered to every player in the catalog (built-ins + admin defaults). */
+    isDefault: t.boolean().notNull().default(false),
+    /** Null = system built-in; else the admin (or wave-2 coach) who created it. */
+    createdByUserId: t
+      .text()
+      .references(() => user.id, { onDelete: "set null" }),
+    /** Soft-retire from the adopt list; existing user habits keep working. */
+    archivedAt: t.timestamp({ withTimezone: true, mode: "date" }),
+    createdAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+    updatedAt: t
+      .timestamp({ withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull()
+      .$onUpdateFn(() => new Date()),
+  }),
+  (table) => [
+    // #14: a coach listing the custom definitions they authored. Also serves
+    // the admin content console's "created by" filter.
+    index("habit_definition_created_by_idx").on(table.createdByUserId),
+  ],
+);
 
 export const Habit = pgTable(
   "habit",
@@ -657,6 +1079,7 @@ export const HabitDefinitionRelations = relations(
 
 export const GameRelations = relations(Game, ({ many }) => ({
   sessions: many(GameSession),
+  coaches: many(CoachGame),
 }));
 
 export const GameSessionRelations = relations(GameSession, ({ one, many }) => ({
@@ -721,5 +1144,87 @@ export const UserAchievementRelations = relations(
 export const StreakRelations = relations(Streak, ({ one }) => ({
   user: one(user, { fields: [Streak.userId], references: [user.id] }),
 }));
+
+export const CoachProfileRelations = relations(
+  CoachProfile,
+  ({ one, many }) => ({
+    user: one(user, { fields: [CoachProfile.userId], references: [user.id] }),
+    games: many(CoachGame),
+    availability: many(CoachAvailability),
+  }),
+);
+
+export const CoachGameRelations = relations(CoachGame, ({ one }) => ({
+  coachProfile: one(CoachProfile, {
+    fields: [CoachGame.coachUserId],
+    references: [CoachProfile.userId],
+  }),
+  game: one(Game, { fields: [CoachGame.gameId], references: [Game.id] }),
+}));
+
+export const CoachAvailabilityRelations = relations(
+  CoachAvailability,
+  ({ one }) => ({
+    coachProfile: one(CoachProfile, {
+      fields: [CoachAvailability.coachUserId],
+      references: [CoachProfile.userId],
+    }),
+  }),
+);
+
+export const CoachingRelationshipRelations = relations(
+  CoachingRelationship,
+  ({ one, many }) => ({
+    player: one(user, {
+      fields: [CoachingRelationship.playerUserId],
+      references: [user.id],
+      relationName: "coaching_relationship_player",
+    }),
+    coach: one(user, {
+      fields: [CoachingRelationship.coachUserId],
+      references: [user.id],
+      relationName: "coaching_relationship_coach",
+    }),
+    sessions: many(CoachingSession),
+    goals: many(Goal),
+  }),
+);
+
+export const GoalRelations = relations(Goal, ({ one }) => ({
+  player: one(user, {
+    fields: [Goal.playerUserId],
+    references: [user.id],
+    relationName: "goal_player",
+  }),
+  assignedBy: one(user, {
+    fields: [Goal.assignedByUserId],
+    references: [user.id],
+    relationName: "goal_assigned_by",
+  }),
+  relationship: one(CoachingRelationship, {
+    fields: [Goal.relationshipId],
+    references: [CoachingRelationship.id],
+  }),
+}));
+
+export const CoachingSessionRelations = relations(
+  CoachingSession,
+  ({ one }) => ({
+    relationship: one(CoachingRelationship, {
+      fields: [CoachingSession.relationshipId],
+      references: [CoachingRelationship.id],
+    }),
+    player: one(user, {
+      fields: [CoachingSession.playerUserId],
+      references: [user.id],
+      relationName: "coaching_session_player",
+    }),
+    coach: one(user, {
+      fields: [CoachingSession.coachUserId],
+      references: [user.id],
+      relationName: "coaching_session_coach",
+    }),
+  }),
+);
 
 export * from "./auth-schema";
