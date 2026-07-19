@@ -161,12 +161,40 @@ Wave-1 schema is already in `packages/db/src/schema.ts`: `profile.role` +
 `habit.assigned_by_user_id` (finalized destructively by #8's PR per its
 spec), backfill script in `packages/db/src/migrations/`.
 
-**Wave 2 — coaching (issues read, schema anticipated, specs later):**
-#9 coach profiles → #10 discovery & application → #11 relationships &
-roster (activates the `assertCoachOf` gate) → #12 progress tracking
-(also needs #8), #13 goals, #14 habit assignment (also needs #8),
-#15 scheduling (also needs #9). Payments/subscriptions stay out of scope
-(#10 schema anticipates a gate only).
+**Wave 2 — coaching (specs written, schema landed):**
+
+| Order | Issue | Spec | Notes |
+|---|---|---|---|
+| 1 | #9 coach profiles | `coach-profiles.md` | Owns the `coaching` tRPC router skeleton and the `mergeGames`/`deleteGame` `coach_game` fix. |
+| 2 | #10 discovery & application | `coach-discovery.md` | No new tables. Produces `applied` relationships. |
+| 3 | #11 relationships & roster | `coaching-relationships.md` | **Keystone** — replaces the deny-all body of `assertCoachOf`. Nothing after it works until it merges. |
+| 4 (parallel) | #12 player tracking | `coach-player-tracking.md` | Also needs #8. Refactors 4 core services to explicit-userId inner functions. |
+| 4 (parallel) | #13 goals | `goals.md` | |
+| 4 (parallel) | #14 habit assignment | `coach-habit-assignment.md` | Also needs #8. Needs **no new habit schema** — one index only. |
+| 4 (parallel) | #15 scheduling | `coaching-sessions.md` | Also needs #9. Extends #11's `endCoachingRelationship`. |
+
+Dependency graph: `#9 → #10 → #11 → {#12, #13, #14, #15}`. Steps 1–3 are
+strictly sequential (each consumes the previous one's rows). The four
+step-4 issues are **parallel-safe in worktrees** once #11 is on `main`: they
+touch disjoint core directories, add one key each to
+`packages/api/src/router/coaching/index.ts`, and own separate route groups.
+Three coordination points are called out in the specs — the shared
+`/coach/players/[playerUserId]` page (#12/#13/#14: first to land creates it,
+others add a panel), the habit-completion aggregate (#12/#14: first to land
+owns `queryHabitCompletionRaw`), and #15's edit to `endCoachingRelationship`.
+
+**Delivery: one PR per issue, branch per issue**, `/code-review` before each
+merge, close the issue on merge with the commit and what was verified.
+
+Wave-2 schema is already in `packages/db/src/schema.ts` (purely additive — no
+data migration): `coach_profile`, `coach_game`, `coach_availability`,
+`coaching_relationship`, `goal`, `coaching_session`; enums
+`coaching_relationship_status`, `coaching_session_status`, `goal_status` (built
+from `packages/validators/src/coaching.ts`); plus
+`habit_definition_created_by_idx` for #14.
+
+Payments/subscriptions stay out of scope. The single insertion point is
+`acceptCoachApplication` (#11) — the only writer of `status = 'active'`.
 
 ---
 
