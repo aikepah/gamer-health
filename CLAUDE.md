@@ -67,8 +67,8 @@ Subagents live in `.claude/agents/`. Default routing:
 |---|---|---|
 | `feature-builder` | Sonnet | Implementing one scoped feature end-to-end |
 | `test-hardener` | Sonnet | Adding/extending Vitest + Playwright coverage |
-| `architect` | Fable 5 | Schema design, cross-cutting contracts, feature specs (`docs/features/*.md`) |
-| `debugger` | Fable 5 | Escalation when a builder is stuck |
+| `architect` | Opus | Schema design, cross-cutting contracts, feature specs (`docs/features/*.md`) |
+| `debugger` | Opus | Escalation when a builder is stuck |
 
 **Phase workflow (in order — issues come first):**
 
@@ -86,7 +86,7 @@ Subagents live in `.claude/agents/`. Default routing:
 2. Use `architect` **before** builders when a task changes DB schema shared by
    multiple features, touches auth/security, or spans 3+ packages.
 3. If a Sonnet agent fails the same task twice, hand the full failure context to
-   `debugger` (Fable 5) instead of retrying a third time.
+   `debugger` (Opus) instead of retrying a third time.
 4. Parallel feature builds run in **worktree isolation** (one builder per
    independent feature); dependent features run sequentially.
 5. After a feature lands: run `/code-review` on the diff before merging.
