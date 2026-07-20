@@ -79,13 +79,20 @@ export function CoachProfileEditor() {
     }),
   );
 
+  // `setGames` is a replace-set computed from the last rendered `profile`, so
+  // a second call issued before the first resolves would be derived from stale
+  // state and silently drop the first change. The controls below are disabled
+  // while a mutation is in flight; these guards make that non-bypassable.
   function addGame(game: PickedGame) {
-    if (profile.games.some((g) => g.id === game.id)) {
+    if (setGames.isPending || profile.games.some((g) => g.id === game.id)) {
       return;
     }
     setGames.mutate({ gameIds: [...profile.games.map((g) => g.id), game.id] });
   }
   function removeGame(gameId: string) {
+    if (setGames.isPending) {
+      return;
+    }
     setGames.mutate({
       gameIds: profile.games.filter((g) => g.id !== gameId).map((g) => g.id),
     });
@@ -118,7 +125,11 @@ export function CoachProfileEditor() {
     }));
   }
 
+  // Same replace-set staleness hazard as `setGames` above.
   function addBlock() {
+    if (setAvailability.isPending) {
+      return;
+    }
     const blocks = [
       ...blocksToInput(profile.availability),
       {
@@ -130,6 +141,9 @@ export function CoachProfileEditor() {
     setAvailability.mutate({ blocks });
   }
   function removeBlock(id: string) {
+    if (setAvailability.isPending) {
+      return;
+    }
     const blocks = blocksToInput(
       profile.availability.filter((b) => b.id !== id),
     );
@@ -217,7 +231,7 @@ export function CoachProfileEditor() {
             onClick={() =>
               updateProfile.mutate({
                 headline: headline.trim().length > 0 ? headline.trim() : null,
-                bio: bio.trim().length > 0 ? bio : null,
+                bio: bio.trim().length > 0 ? bio.trim() : null,
                 specialties,
               })
             }
@@ -234,6 +248,7 @@ export function CoachProfileEditor() {
           key={profile.games.map((g) => g.id).join(",")}
           value={null}
           onChange={addGame}
+          disabled={setGames.isPending}
           placeholder="Add a game…"
         />
         <ul className="flex flex-wrap gap-2">
@@ -247,6 +262,7 @@ export function CoachProfileEditor() {
                 type="button"
                 className="text-muted-foreground hover:text-foreground"
                 onClick={() => removeGame(g.id)}
+                disabled={setGames.isPending}
                 aria-label={`Remove ${g.name}`}
               >
                 ×
@@ -296,6 +312,7 @@ export function CoachProfileEditor() {
                       type="button"
                       className="text-muted-foreground hover:text-foreground"
                       onClick={() => removeBlock(b.id)}
+                      disabled={setAvailability.isPending}
                       aria-label="Remove availability block"
                     >
                       ×

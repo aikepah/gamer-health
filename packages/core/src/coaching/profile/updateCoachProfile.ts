@@ -16,7 +16,11 @@ import {
 
 export const updateCoachProfileInput = z.object({
   headline: z.string().trim().min(1).max(120).nullish(),
-  bio: z.string().max(4000).nullish(),
+  // Trimmed like `headline` above: normalization belongs at the service
+  // boundary, not in the UI — every caller (tRPC, seed, the post-MVP AI
+  // assistant) goes through this schema. An all-whitespace bio becomes "",
+  // which the service stores as null.
+  bio: z.string().trim().max(4000).nullish(),
   specialties: z.array(z.enum(COACH_SPECIALTIES)).max(8).default([]),
 });
 export type UpdateCoachProfileInput = z.infer<typeof updateCoachProfileInput>;
@@ -36,7 +40,9 @@ export async function updateCoachProfile(
     .update(CoachProfile)
     .set({
       headline: input.headline ?? null,
-      bio: input.bio ?? null,
+      // "" (an all-whitespace bio after trimming) stores as null, so "no bio"
+      // has exactly one representation.
+      bio: input.bio ? input.bio : null,
       specialties: input.specialties,
     })
     .where(eq(CoachProfile.userId, authz.userId))
