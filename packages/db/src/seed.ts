@@ -11,7 +11,7 @@ import { randomBytes } from "node:crypto";
 import { TZDate } from "@date-fns/tz";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 
 import type { CoachSpecialty } from "@gamer-health/validators";
 import {
@@ -27,6 +27,7 @@ import {
   Checkin,
   CoachAvailability,
   CoachGame,
+  CoachingRelationship,
   CoachInvite,
   CoachProfile,
   Game,
@@ -608,6 +609,71 @@ async function seedCoachProfiles(
   });
 }
 
+// --- Coach discovery & application (#10): seeded `applied` relationships so
+// #11's coach roster has pending applications (and a multi-application case)
+// on first load, with no manual setup. Runs after `seedCoachProfiles` (both
+// coaches must exist) and `seedExtraPlayers` (both players must exist). -----
+
+async function seedCoachApplications(
+  player1Id: string,
+  player2Id: string,
+  coachId: string,
+  coach2Id: string,
+) {
+  // Idempotency: wipe exactly these seeded (player, coach) pairs, then
+  // re-insert — a plain upsert can't target this table's partial unique
+  // indexes, and re-running should always land on the same three rows.
+  await db
+    .delete(CoachingRelationship)
+    .where(
+      or(
+        and(
+          eq(CoachingRelationship.playerUserId, player1Id),
+          eq(CoachingRelationship.coachUserId, coachId),
+        ),
+        and(
+          eq(CoachingRelationship.playerUserId, player2Id),
+          eq(CoachingRelationship.coachUserId, coachId),
+        ),
+        and(
+          eq(CoachingRelationship.playerUserId, player2Id),
+          eq(CoachingRelationship.coachUserId, coach2Id),
+        ),
+      ),
+    );
+
+  await db.insert(CoachingRelationship).values([
+    {
+      // Riley Chen -> Demo Coach: the single pending application #11 shows
+      // on first load.
+      playerUserId: player1Id,
+      coachUserId: coachId,
+      status: "applied",
+      initiatedByUserId: player1Id,
+      message:
+        "Hi! I've been struggling to wind down after late-night ranked sessions — would love help building a sleep routine.",
+    },
+    {
+      // Sam Okafor -> Demo Coach AND Dana Whitfield: the multi-application
+      // case (#10's discovery lets a player shop more than one coach) and
+      // #11's auto-decline-the-others path once one of these is accepted.
+      playerUserId: player2Id,
+      coachUserId: coachId,
+      status: "applied",
+      initiatedByUserId: player2Id,
+      message:
+        "Looking for help balancing long Stardew/Minecraft sessions with the rest of my life.",
+    },
+    {
+      playerUserId: player2Id,
+      coachUserId: coach2Id,
+      status: "applied",
+      initiatedByUserId: player2Id,
+      message: "Interested in your screen-time balance coaching!",
+    },
+  ]);
+}
+
 // --- Admin content management (#7): games-catalog curation demo data + one
 // admin-created default habit definition. -----------------------------------
 
@@ -1153,7 +1219,7 @@ async function seed() {
   await seedCoachInvites(adminId, coachId);
 
   // --- Admin user management (#5): extra players + admin audit log rows ---
-  const { player1Id, player3Id } = await seedExtraPlayers();
+  const { player1Id, player2Id, player3Id } = await seedExtraPlayers();
   await seedAdminAuditLog(adminId, coachId, player3Id);
 
   // --- Session tracking: catalog + demo user's session history ---
@@ -1162,6 +1228,9 @@ async function seed() {
   // --- Coach profiles (#9): demo coach + a second published coach + a third,
   // unpublished coach. Runs after seedSessionTracking (needs CATALOG_GAMES).
   await seedCoachProfiles(coachId, coach2Id, coach3Id);
+
+  // --- Coach discovery & application (#10): seeded `applied` relationships.
+  await seedCoachApplications(player1Id, player2Id, coachId, coach2Id);
 
   // --- Habit engine: demo user's habits + representative historical prompts
   const prompts = await seedHabitEngine(

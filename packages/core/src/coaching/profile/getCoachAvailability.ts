@@ -11,6 +11,7 @@ import type { ServiceCtx } from "../../ctx";
 import type { AvailabilityBlock } from "./getOrCreateCoachProfile";
 import { requireActiveUser } from "../../authz/requireRole";
 import { CoreError } from "../../lib/errors";
+import { isCoachDiscoverable } from "../discovery/publishedCoachWhere";
 
 export const getCoachAvailabilityInput = z.object({
   coachUserId: z.string().min(1),
@@ -45,14 +46,15 @@ export async function getCoachAvailability(
   if (!coachProfileRow) {
     throw new CoreError("NOT_FOUND", "Coach not found");
   }
-  if (!isSelf) {
-    const visible =
-      coachProfileRow.isPublished &&
-      profileRow?.role === "coach" &&
-      profileRow.deactivatedAt == null;
-    if (!visible) {
-      throw new CoreError("NOT_FOUND", "Coach not found");
-    }
+  if (
+    !isSelf &&
+    !isCoachDiscoverable({
+      isPublished: coachProfileRow.isPublished,
+      role: profileRow?.role,
+      deactivatedAt: profileRow?.deactivatedAt,
+    })
+  ) {
+    throw new CoreError("NOT_FOUND", "Coach not found");
   }
 
   const blocks = await ctx.db.query.CoachAvailability.findMany({

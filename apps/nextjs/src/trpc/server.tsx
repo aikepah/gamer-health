@@ -60,6 +60,34 @@ export const getInviteByToken = cache(
   },
 );
 
+/**
+ * Server-side `coaching.profile.getPublic` fetch for `/coaches/[coachUserId]`,
+ * which needs to branch synchronously into a 404 (`notFound()`) for an
+ * unknown, unpublished, or deactivated coach rather than just prefetching for
+ * client hydration. Any throw is treated as "not visible to this caller":
+ * `NOT_FOUND` for an unknown/unpublished/deactivated coach, but also
+ * `FORBIDDEN` if the *caller* is deactivated (`requireActiveUser`) — both
+ * should render the same 404 rather than leak which case applies. Same
+ * catch-all convention as `getInviteByToken` above.
+ */
+export const getPublicCoachProfileOrNull = cache(
+  async (
+    coachUserId: string,
+  ): Promise<RouterOutputs["coaching"]["profile"]["getPublic"] | null> => {
+    const ctx = await createContext();
+    if (!ctx.session?.user) {
+      return null;
+    }
+    try {
+      return await appRouter
+        .createCaller(ctx)
+        .coaching.profile.getPublic({ coachUserId });
+    } catch {
+      return null;
+    }
+  },
+);
+
 const getQueryClient = cache(createQueryClient);
 
 export const trpc = createTRPCOptionsProxy<AppRouter>({
