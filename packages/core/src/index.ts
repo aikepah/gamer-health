@@ -323,3 +323,35 @@ export {
 export type { WithdrawApplicationInput } from "./coaching/discovery/withdrawApplication";
 export { listMyApplications } from "./coaching/discovery/listMyApplications";
 export type { MyApplicationRow } from "./coaching/discovery/listMyApplications";
+
+// --- Coaching relationships & roster (#11) ----------------------------------
+export {
+  findActiveRelationship,
+  requireMyCoachRelationship,
+} from "./coaching/relationships/getActiveRelationship";
+export type { CoachingRelationshipRow } from "./coaching/relationships/getActiveRelationship";
+export {
+  acceptCoachApplication,
+  acceptCoachApplicationInput,
+} from "./coaching/relationships/acceptCoachApplication";
+export type { AcceptCoachApplicationInput } from "./coaching/relationships/acceptCoachApplication";
+export {
+  declineCoachApplication,
+  declineCoachApplicationInput,
+} from "./coaching/relationships/declineCoachApplication";
+export type { DeclineCoachApplicationInput } from "./coaching/relationships/declineCoachApplication";
+export {
+  endCoachingRelationship,
+  endCoachingRelationshipInput,
+} from "./coaching/relationships/endCoachingRelationship";
+export type { EndCoachingRelationshipInput } from "./coaching/relationships/endCoachingRelationship";
+export {
+  listCoachRoster,
+  listCoachRosterInput,
+} from "./coaching/relationships/listCoachRoster";
+export type {
+  ListCoachRosterInput,
+  RosterEntry,
+} from "./coaching/relationships/listCoachRoster";
+export { getMyCoach } from "./coaching/relationships/getMyCoach";
+export type { MyCoachSummary } from "./coaching/relationships/getMyCoach";

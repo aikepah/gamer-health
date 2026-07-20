@@ -1,24 +1,33 @@
 import type { ServiceCtx } from "../ctx";
+import { and, eq } from "@gamer-health/db";
+import { CoachingRelationship } from "@gamer-health/db/schema";
+
 import { CoreError } from "../lib/errors";
 import { requireRole } from "./requireRole";
 
 /**
  * Asserts the caller is an active coach with an ACTIVE coaching relationship
- * to `playerUserId`.
- *
- * Wave 1 (#4) ships this deny-all: it verifies the caller is an active coach
- * and then unconditionally throws FORBIDDEN. The coaching-relationship table
- * lands in #11, which replaces only the final throw with a
- * `status = 'active'` relationship lookup — the signature and call sites are
- * final now. This is deliberate: deny-by-default means nothing built against
- * this contract can leak player data before #11 lands.
+ * to `playerUserId`. This is the privacy gate for every coach-side view of
+ * player data (#12–#15).
  *
  * Admins do not implicitly pass this check — only role "coach" does.
+ * A player has at most one active coach, so this is a single-row lookup.
  */
 export async function assertCoachOf(
   ctx: ServiceCtx,
-  _playerUserId: string,
+  playerUserId: string,
 ): Promise<void> {
-  await requireRole(ctx, ["coach"]);
-  throw new CoreError("FORBIDDEN", "No active coaching relationship");
+  const coach = await requireRole(ctx, ["coach"]);
+
+  const relationship = await ctx.db.query.CoachingRelationship.findFirst({
+    columns: { id: true },
+    where: and(
+      eq(CoachingRelationship.coachUserId, coach.userId),
+      eq(CoachingRelationship.playerUserId, playerUserId),
+      eq(CoachingRelationship.status, "active"),
+    ),
+  });
+  if (!relationship) {
+    throw new CoreError("FORBIDDEN", "No active coaching relationship");
+  }
 }

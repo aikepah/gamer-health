@@ -19,7 +19,10 @@ const ADMIN_LINK = { href: "/admin", label: "Admin" } as const;
  * Rendered only for coaches (#9). #10–#15 append their own entries here
  * (e.g. "Players", "Sessions") as those routes land.
  */
-const COACH_LINKS = [{ href: "/coach/profile", label: "Coach" }] as const;
+const COACH_LINKS = [
+  { href: "/coach/profile", label: "Coach" },
+  { href: "/coach/roster", label: "Roster" },
+] as const;
 
 /** Discovery (#10): browsing/applying to coaches is a player-facing concern. */
 const PLAYER_LINKS = [{ href: "/coaches", label: "Find a coach" }] as const;
