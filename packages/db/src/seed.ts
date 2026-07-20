@@ -674,7 +674,7 @@ async function seedCoachApplications(
   ]);
 }
 
-/** Midnight UTC `n` days ago — plausible-enough seed timestamps; not a timezone conversion. */
+/** Noon UTC `n` days ago — plausible-enough seed timestamps; not a timezone conversion. */
 function daysAgo(n: number): Date {
   const d = new Date();
   d.setUTCHours(12, 0, 0, 0);
