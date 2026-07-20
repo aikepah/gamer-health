@@ -5,7 +5,10 @@ import { declineCoachApplication } from "./declineCoachApplication";
 
 function makeCtx(config: {
   callerId?: string;
-  authzProfile?: { role: "player" | "coach" | "admin"; deactivatedAt: Date | null };
+  authzProfile?: {
+    role: "player" | "coach" | "admin";
+    deactivatedAt: Date | null;
+  };
   row?: { coachUserId: string; status: string } | undefined;
   /** Rows affected by the conditional UPDATE; [] simulates losing the race. */
   updatedRows?: { id: string }[];
@@ -13,13 +16,19 @@ function makeCtx(config: {
   const findFirst = vi.fn().mockResolvedValue(config.row);
   const profileFindFirst = vi
     .fn()
-    .mockResolvedValue(config.authzProfile ?? { role: "coach", deactivatedAt: null });
+    .mockResolvedValue(
+      config.authzProfile ?? { role: "coach", deactivatedAt: null },
+    );
   const returning = vi
     .fn()
     .mockResolvedValue(config.updatedRows ?? [{ id: "rel_1" }]);
   const where = vi.fn(() => ({ returning }));
   const set = vi.fn(
-    (_patch: { status: string; respondedAt: Date; responseNote: string | null }) => ({
+    (_patch: {
+      status: string;
+      respondedAt: Date;
+      responseNote: string | null;
+    }) => ({
       where,
     }),
   );

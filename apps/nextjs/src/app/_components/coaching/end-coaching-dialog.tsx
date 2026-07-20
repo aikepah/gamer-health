@@ -93,7 +93,11 @@ export function EndCoachingDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" variant="destructive" disabled={end.isPending}>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={end.isPending}
+            >
               {end.isPending ? "Ending…" : "End coaching"}
             </Button>
           </DialogFooter>

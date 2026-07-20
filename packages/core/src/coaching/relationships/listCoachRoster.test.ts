@@ -19,7 +19,10 @@ function makeChain(result: unknown[]) {
 }
 
 function makeCtx(config: {
-  authzProfile?: { role: "player" | "coach" | "admin"; deactivatedAt: Date | null };
+  authzProfile?: {
+    role: "player" | "coach" | "admin";
+    deactivatedAt: Date | null;
+  };
   rows?: {
     relationshipId: string;
     status: string;
@@ -34,7 +37,9 @@ function makeCtx(config: {
   const select = vi.fn(() => makeChain(config.rows ?? []));
   const profileFindFirst = vi
     .fn()
-    .mockResolvedValue(config.authzProfile ?? { role: "coach", deactivatedAt: null });
+    .mockResolvedValue(
+      config.authzProfile ?? { role: "coach", deactivatedAt: null },
+    );
   const db = {
     select,
     query: { Profile: { findFirst: profileFindFirst } },

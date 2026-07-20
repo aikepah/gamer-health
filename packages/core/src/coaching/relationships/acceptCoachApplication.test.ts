@@ -21,7 +21,10 @@ function chainable<T>(awaited: T, returningValue: unknown) {
 
 function makeCtx(config: {
   callerId?: string;
-  authzProfile?: { role: "player" | "coach" | "admin"; deactivatedAt: Date | null };
+  authzProfile?: {
+    role: "player" | "coach" | "admin";
+    deactivatedAt: Date | null;
+  };
   row?: RelationshipRow | undefined;
   existingActive?: { id: string } | undefined;
   /** Rows returned by the conditional accept UPDATE; [] simulates losing the race. */
@@ -30,7 +33,9 @@ function makeCtx(config: {
 }) {
   const profileFindFirst = vi
     .fn()
-    .mockResolvedValue(config.authzProfile ?? { role: "coach", deactivatedAt: null });
+    .mockResolvedValue(
+      config.authzProfile ?? { role: "coach", deactivatedAt: null },
+    );
   const outerFindFirst = vi.fn().mockResolvedValue(config.row);
 
   const txFindFirst = vi.fn().mockResolvedValue(config.existingActive);
@@ -39,7 +44,14 @@ function makeCtx(config: {
     config.acceptedRows ??
     (config.row
       ? [{ ...config.row, status: "active" }]
-      : [{ id: "rel_1", playerUserId: "player_1", coachUserId: "coach_1", status: "active" }]);
+      : [
+          {
+            id: "rel_1",
+            playerUserId: "player_1",
+            coachUserId: "coach_1",
+            status: "active",
+          },
+        ]);
 
   let updateCallIndex = 0;
   const acceptWhere = vi.fn(() => chainable(undefined, acceptedRows));

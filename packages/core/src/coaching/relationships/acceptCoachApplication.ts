@@ -4,9 +4,9 @@ import { and, eq, ne } from "@gamer-health/db";
 import { CoachingRelationship } from "@gamer-health/db/schema";
 
 import type { ServiceCtx, TxDb } from "../../ctx";
+import type { CoachingRelationshipRow } from "./getActiveRelationship";
 import { requireRole } from "../../authz/requireRole";
 import { CoreError, isUniqueViolation } from "../../lib/errors";
-import type { CoachingRelationshipRow } from "./getActiveRelationship";
 
 export const acceptCoachApplicationInput = z.object({
   relationshipId: z.uuid(),

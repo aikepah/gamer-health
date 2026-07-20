@@ -1,7 +1,7 @@
-import type { ServiceCtx } from "../ctx";
 import { and, eq } from "@gamer-health/db";
 import { CoachingRelationship } from "@gamer-health/db/schema";
 
+import type { ServiceCtx } from "../ctx";
 import { CoreError } from "../lib/errors";
 import { requireRole } from "./requireRole";
 

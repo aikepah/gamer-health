@@ -85,9 +85,7 @@ export function RosterPanel() {
                     Applied {new Date(entry.appliedAt).toLocaleDateString()}
                   </p>
                 </div>
-                {entry.message && (
-                  <p className="text-sm">{entry.message}</p>
-                )}
+                {entry.message && <p className="text-sm">{entry.message}</p>}
                 <div className="mt-1 flex gap-2">
                   <Button
                     size="sm"

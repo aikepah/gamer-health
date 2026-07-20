@@ -5,7 +5,9 @@ import { endCoachingRelationship } from "./endCoachingRelationship";
 
 function makeCtx(config: {
   callerId?: string;
-  row?: { playerUserId: string; coachUserId: string; status: string } | undefined;
+  row?:
+    | { playerUserId: string; coachUserId: string; status: string }
+    | undefined;
   /** Rows affected by the conditional UPDATE; [] simulates losing the race. */
   updatedRows?: { id: string }[];
 }) {
@@ -56,7 +58,11 @@ describe("endCoachingRelationship", () => {
   it("throws CoreError(NOT_FOUND) when the caller is neither the player nor the coach", async () => {
     const { ctx } = makeCtx({
       callerId: "someone_else",
-      row: { playerUserId: "player_1", coachUserId: "coach_1", status: "active" },
+      row: {
+        playerUserId: "player_1",
+        coachUserId: "coach_1",
+        status: "active",
+      },
     });
     await expect(
       endCoachingRelationship(ctx, { relationshipId: "rel_1" }),
@@ -66,7 +72,11 @@ describe("endCoachingRelationship", () => {
   it("throws CoreError(CONFLICT) when the row isn't currently 'active'", async () => {
     const { ctx } = makeCtx({
       callerId: "player_1",
-      row: { playerUserId: "player_1", coachUserId: "coach_1", status: "applied" },
+      row: {
+        playerUserId: "player_1",
+        coachUserId: "coach_1",
+        status: "applied",
+      },
     });
     await expect(
       endCoachingRelationship(ctx, { relationshipId: "rel_1" }),
@@ -79,7 +89,11 @@ describe("endCoachingRelationship", () => {
   it("allows the player to end the relationship", async () => {
     const { ctx, set } = makeCtx({
       callerId: "player_1",
-      row: { playerUserId: "player_1", coachUserId: "coach_1", status: "active" },
+      row: {
+        playerUserId: "player_1",
+        coachUserId: "coach_1",
+        status: "active",
+      },
     });
 
     await endCoachingRelationship(ctx, {
@@ -101,20 +115,32 @@ describe("endCoachingRelationship", () => {
   it("allows the coach to end the relationship", async () => {
     const { ctx, set } = makeCtx({
       callerId: "coach_1",
-      row: { playerUserId: "player_1", coachUserId: "coach_1", status: "active" },
+      row: {
+        playerUserId: "player_1",
+        coachUserId: "coach_1",
+        status: "active",
+      },
     });
 
     await endCoachingRelationship(ctx, { relationshipId: "rel_1" });
 
     expect(set).toHaveBeenCalledWith(
-      expect.objectContaining({ status: "ended", endedByUserId: "coach_1", endReason: null }),
+      expect.objectContaining({
+        status: "ended",
+        endedByUserId: "coach_1",
+        endReason: null,
+      }),
     );
   });
 
   it("throws CONFLICT when the conditional update matches nothing (lost race)", async () => {
     const { ctx } = makeCtx({
       callerId: "player_1",
-      row: { playerUserId: "player_1", coachUserId: "coach_1", status: "active" },
+      row: {
+        playerUserId: "player_1",
+        coachUserId: "coach_1",
+        status: "active",
+      },
       updatedRows: [],
     });
 

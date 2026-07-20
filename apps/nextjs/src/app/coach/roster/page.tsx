@@ -2,8 +2,12 @@ import { HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { RosterPanel } from "./_components/roster-panel";
 
 export default function CoachRosterPage() {
-  prefetch(trpc.coaching.relationships.roster.queryOptions({ status: "applied" }));
-  prefetch(trpc.coaching.relationships.roster.queryOptions({ status: "active" }));
+  prefetch(
+    trpc.coaching.relationships.roster.queryOptions({ status: "applied" }),
+  );
+  prefetch(
+    trpc.coaching.relationships.roster.queryOptions({ status: "active" }),
+  );
 
   return (
     <HydrateClient>

@@ -1,6 +1,10 @@
 import type { CoachSpecialty } from "@gamer-health/validators";
 import { and, eq } from "@gamer-health/db";
-import { CoachingRelationship, CoachProfile, user } from "@gamer-health/db/schema";
+import {
+  CoachingRelationship,
+  CoachProfile,
+  user,
+} from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
 import { requireActiveUser } from "../../authz/requireRole";
