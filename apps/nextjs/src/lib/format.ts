@@ -41,13 +41,30 @@ export function formatMinutesAsHours(minutes: number): string {
   return `${(minutes / 60).toFixed(1)}h`;
 }
 
-/** Parses an `<input type="time">` value ("HH:MM") into minutes-from-midnight. */
+/**
+ * Parses an `<input type="time">` value ("HH:MM") into minutes-from-midnight.
+ * Anything that isn't a valid HH:MM (including the empty value a cleared time
+ * input produces) yields 0 — `?? 0` alone wouldn't do it, since a non-numeric
+ * part parses to NaN rather than undefined.
+ */
 export function minutesFromTimeString(value: string): number {
-  const [hours, minutes] = value.split(":").map(Number);
-  return (hours ?? 0) * 60 + (minutes ?? 0);
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value);
+  if (!match) {
+    return 0;
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) {
+    return 0;
+  }
+  return hours * 60 + minutes;
 }
 
-/** Formats minutes-from-midnight (0-1440) as an `<input type="time">` value ("HH:MM"). */
+/**
+ * Formats minutes-from-midnight as an `<input type="time">` value ("HH:MM").
+ * Clamped to 0–1439: an input can't represent 24:00, so an end-of-day 1440
+ * renders as 23:59.
+ */
 export function timeStringFromMinutes(minutes: number): string {
   const clamped = Math.min(1439, Math.max(0, minutes));
   const hours = Math.floor(clamped / 60);

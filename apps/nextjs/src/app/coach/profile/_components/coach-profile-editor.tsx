@@ -27,8 +27,16 @@ export function CoachProfileEditor() {
     trpc.coaching.profile.getMine.queryOptions(),
   );
 
-  function writeCache(next: typeof profile) {
-    queryClient.setQueryData(trpc.coaching.profile.getMine.queryKey(), next);
+  /**
+   * Merges a patch into the cached profile via the functional updater, so a
+   * mutation that resolves after another can't clobber the other's field with
+   * a value captured at render time.
+   */
+  function patchCache(patch: Partial<typeof profile>) {
+    queryClient.setQueryData(
+      trpc.coaching.profile.getMine.queryKey(),
+      (prev) => (prev ? { ...prev, ...patch } : prev),
+    );
   }
 
   // --- Headline / bio / specialties ---------------------------------------
@@ -41,7 +49,7 @@ export function CoachProfileEditor() {
   const updateProfile = useMutation(
     trpc.coaching.profile.update.mutationOptions({
       onSuccess: (data) => {
-        writeCache(data);
+        patchCache(data);
         toast.success("Profile saved");
       },
       onError: (error) => {
@@ -62,7 +70,7 @@ export function CoachProfileEditor() {
   const setGames = useMutation(
     trpc.coaching.profile.setGames.mutationOptions({
       onSuccess: (games) => {
-        writeCache({ ...profile, games });
+        patchCache({ games });
         toast.success("Games updated");
       },
       onError: (error) => {
@@ -87,7 +95,7 @@ export function CoachProfileEditor() {
   const setAvailability = useMutation(
     trpc.coaching.profile.setAvailability.mutationOptions({
       onSuccess: (availability) => {
-        writeCache({ ...profile, availability });
+        patchCache({ availability });
         toast.success("Availability updated");
       },
       onError: (error) => {
@@ -132,7 +140,7 @@ export function CoachProfileEditor() {
   const setPublished = useMutation(
     trpc.coaching.profile.setPublished.mutationOptions({
       onSuccess: ({ isPublished }) => {
-        writeCache({ ...profile, isPublished });
+        patchCache({ isPublished });
         toast.success(
           isPublished ? "Profile published" : "Profile unpublished",
         );
@@ -145,7 +153,7 @@ export function CoachProfileEditor() {
   const setAccepting = useMutation(
     trpc.coaching.profile.setAccepting.mutationOptions({
       onSuccess: ({ acceptingApplications }) => {
-        writeCache({ ...profile, acceptingApplications });
+        patchCache({ acceptingApplications });
       },
       onError: (error) => {
         toast.error(error.message || "Failed to update");

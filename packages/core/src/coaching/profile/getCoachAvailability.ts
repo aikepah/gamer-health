@@ -27,7 +27,7 @@ export type GetCoachAvailabilityInput = z.infer<
 export async function getCoachAvailability(
   ctx: ServiceCtx,
   input: GetCoachAvailabilityInput,
-): Promise<{ timezone: string; blocks: AvailabilityBlock[] }> {
+): Promise<{ timezone: string | null; blocks: AvailabilityBlock[] }> {
   const authz = await requireActiveUser(ctx);
   const isSelf = authz.userId === input.coachUserId;
 
@@ -64,7 +64,11 @@ export async function getCoachAvailability(
   });
 
   return {
-    timezone: profileRow?.timezone ?? "UTC",
+    // Null (coach never chose one) is NOT collapsed to "UTC": these blocks are
+    // wall-clock in the coach's zone, and #15 will book against them. Callers
+    // that only need to compute may `?? "UTC"`; callers that display must say
+    // "timezone not set" rather than assert a zone the coach never picked.
+    timezone: profileRow?.timezone ?? null,
     blocks: blocks.map((row) => ({
       id: row.id,
       weekday: row.weekday,

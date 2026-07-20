@@ -126,6 +126,8 @@ describe("getCoachAvailability", () => {
 
     const result = await getCoachAvailability(ctx, { coachUserId: "coach_1" });
 
-    expect(result.timezone).toBe("UTC");
+    // Null, not "UTC": an unset timezone must stay distinguishable from a
+    // coach who explicitly chose UTC (see the service's comment).
+    expect(result.timezone).toBeNull();
   });
 });

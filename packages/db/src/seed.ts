@@ -526,7 +526,9 @@ async function seedCoachProfile(data: SeedCoachProfileData) {
     where: inArray(Game.name, [...data.gameNames]),
   });
   const gameIdByName = new Map(games.map((g) => [g.name, g.id]));
-  const gameIds = data.gameNames.map((name) => {
+  // Dedupe: a duplicate name in `gameNames` would insert the same
+  // (coachUserId, gameId) twice and trip coach_game's PK.
+  const gameIds = [...new Set(data.gameNames)].map((name) => {
     const id = gameIdByName.get(name);
     if (!id) {
       throw new Error(`Seed game not found in catalog: ${name}`);

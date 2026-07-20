@@ -16,7 +16,8 @@ export type SetCoachGamesInput = z.infer<typeof setCoachGamesInput>;
 
 /**
  * Replace-set: the caller's `coach_game` rows become exactly `gameIds`.
- * Every id must exist (`NOT_FOUND` otherwise, checked before any write);
+ * Every id must exist (`NOT_FOUND` otherwise, checked before any `coach_game`
+ * write — `ensureCoachProfileRow` may create the profile row before that);
  * rows no longer in the set are deleted, new ones inserted with
  * `onConflictDoNothing`. All in one transaction.
  */
