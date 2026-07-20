@@ -1,6 +1,7 @@
 import { createTRPCRouter } from "../../trpc";
 import { discoveryRouter } from "./discovery";
 import { profileRouter } from "./profile";
+import { relationshipsRouter } from "./relationships";
 
 /**
  * Coaching router skeleton (MVP 2 wave 2, #9). #10–#15 each add one key here
@@ -12,4 +13,5 @@ import { profileRouter } from "./profile";
 export const coachingRouter = createTRPCRouter({
   profile: profileRouter,
   discovery: discoveryRouter,
+  relationships: relationshipsRouter,
 });

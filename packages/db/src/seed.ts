@@ -674,6 +674,76 @@ async function seedCoachApplications(
   ]);
 }
 
+/** Noon UTC `n` days ago — plausible-enough seed timestamps; not a timezone conversion. */
+function daysAgo(n: number): Date {
+  const d = new Date();
+  d.setUTCHours(12, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d;
+}
+
+// --- Coaching relationships & roster (#11): the ACTIVE relationship every
+// downstream coach-side feature (#12–#15) and `assertCoachOf` need to find
+// something on a fresh seed, plus one `ended` row so terminal-state
+// rendering is reachable. Runs after `seedCoachProfiles` (coach must exist),
+// `seedExtraPlayers` (player3 must exist) and the demo user/coach ids are
+// already resolved in `seed()`. -------------------------------------------
+
+async function seedCoachingRelationships(
+  demoUserId: string,
+  player3Id: string,
+  coachId: string,
+) {
+  // Idempotency: wipe exactly these seeded (player, coach) pairs, then
+  // re-insert — a plain upsert can't target this table's partial unique
+  // indexes, and re-running should always land on the same two rows.
+  await db
+    .delete(CoachingRelationship)
+    .where(
+      or(
+        and(
+          eq(CoachingRelationship.playerUserId, demoUserId),
+          eq(CoachingRelationship.coachUserId, coachId),
+        ),
+        and(
+          eq(CoachingRelationship.playerUserId, player3Id),
+          eq(CoachingRelationship.coachUserId, coachId),
+        ),
+      ),
+    );
+
+  await db.insert(CoachingRelationship).values([
+    {
+      // Demo user -> Demo Coach: active, started 30 days ago. This is what
+      // makes #12-#15's coach-side views reachable from a fresh seed, and
+      // what `assertCoachOf` finds for the demo coach account.
+      playerUserId: demoUserId,
+      coachUserId: coachId,
+      status: "active",
+      initiatedByUserId: demoUserId,
+      message: "Would love some help balancing late-night sessions.",
+      appliedAt: daysAgo(35),
+      respondedAt: daysAgo(30),
+      startedAt: daysAgo(30),
+    },
+    {
+      // Player3 -> Demo Coach: ended 10 days ago, so terminal-state
+      // rendering (roster history, re-apply flow) is reachable too.
+      playerUserId: player3Id,
+      coachUserId: coachId,
+      status: "ended",
+      initiatedByUserId: player3Id,
+      message: "Looking for accountability around screen time.",
+      appliedAt: daysAgo(60),
+      respondedAt: daysAgo(58),
+      startedAt: daysAgo(58),
+      endedAt: daysAgo(10),
+      endedByUserId: player3Id,
+      endReason: "Schedules stopped lining up.",
+    },
+  ]);
+}
+
 // --- Admin content management (#7): games-catalog curation demo data + one
 // admin-created default habit definition. -----------------------------------
 
@@ -1231,6 +1301,10 @@ async function seed() {
 
   // --- Coach discovery & application (#10): seeded `applied` relationships.
   await seedCoachApplications(player1Id, player2Id, coachId, coach2Id);
+
+  // --- Coaching relationships & roster (#11): the active demo relationship
+  // + one ended one, so #12–#15 and assertCoachOf have something to find.
+  await seedCoachingRelationships(demoUser.id, player3Id, coachId);
 
   // --- Habit engine: demo user's habits + representative historical prompts
   const prompts = await seedHabitEngine(

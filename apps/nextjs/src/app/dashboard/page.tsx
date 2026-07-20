@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getSession } from "~/auth/server";
 import { HydrateClient, prefetch, trpc } from "~/trpc/server";
+import { MyCoachCard } from "../_components/coaching/my-coach-card";
 import { HabitCompletionCard } from "../_components/dashboard/habit-completion-card";
 import { PlaytimeVsWellnessChart } from "../_components/dashboard/playtime-vs-wellness-chart";
 import { WeeklyPlaytimeChart } from "../_components/dashboard/weekly-playtime-chart";
@@ -21,6 +22,8 @@ export default async function DashboardPage() {
   prefetch(trpc.dashboard.habitCompletion.queryOptions({}));
   prefetch(trpc.dashboard.wellnessTrend.queryOptions({}));
   prefetch(trpc.dashboard.playtimeVsWellness.queryOptions({}));
+  prefetch(trpc.coaching.relationships.myCoach.queryOptions());
+  prefetch(trpc.coaching.discovery.myApplications.queryOptions());
 
   return (
     <HydrateClient>
@@ -29,6 +32,7 @@ export default async function DashboardPage() {
         <div className="flex flex-col gap-6">
           <section className="flex flex-wrap items-start gap-4">
             <PlayerStatsCard />
+            <MyCoachCard />
             <AchievementsList />
           </section>
 
