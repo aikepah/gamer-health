@@ -623,22 +623,24 @@ async function seedCoachApplications(
   // Idempotency: wipe exactly these seeded (player, coach) pairs, then
   // re-insert — a plain upsert can't target this table's partial unique
   // indexes, and re-running should always land on the same three rows.
-  await db.delete(CoachingRelationship).where(
-    or(
-      and(
-        eq(CoachingRelationship.playerUserId, player1Id),
-        eq(CoachingRelationship.coachUserId, coachId),
+  await db
+    .delete(CoachingRelationship)
+    .where(
+      or(
+        and(
+          eq(CoachingRelationship.playerUserId, player1Id),
+          eq(CoachingRelationship.coachUserId, coachId),
+        ),
+        and(
+          eq(CoachingRelationship.playerUserId, player2Id),
+          eq(CoachingRelationship.coachUserId, coachId),
+        ),
+        and(
+          eq(CoachingRelationship.playerUserId, player2Id),
+          eq(CoachingRelationship.coachUserId, coach2Id),
+        ),
       ),
-      and(
-        eq(CoachingRelationship.playerUserId, player2Id),
-        eq(CoachingRelationship.coachUserId, coachId),
-      ),
-      and(
-        eq(CoachingRelationship.playerUserId, player2Id),
-        eq(CoachingRelationship.coachUserId, coach2Id),
-      ),
-    ),
-  );
+    );
 
   await db.insert(CoachingRelationship).values([
     {
