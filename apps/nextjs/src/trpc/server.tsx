@@ -60,6 +60,32 @@ export const getInviteByToken = cache(
   },
 );
 
+/**
+ * Server-side `coaching.profile.getPublic` fetch for `/coaches/[coachUserId]`,
+ * which needs to branch synchronously into a 404 (`notFound()`) for an
+ * unknown, unpublished, or deactivated coach rather than just prefetching for
+ * client hydration. `getPublicCoachProfile` only ever throws `NOT_FOUND`, so
+ * any failure here means "no such visible coach" — same convention as
+ * `getInviteByToken` above.
+ */
+export const getPublicCoachProfileOrNull = cache(
+  async (
+    coachUserId: string,
+  ): Promise<RouterOutputs["coaching"]["profile"]["getPublic"] | null> => {
+    const ctx = await createContext();
+    if (!ctx.session?.user) {
+      return null;
+    }
+    try {
+      return await appRouter
+        .createCaller(ctx)
+        .coaching.profile.getPublic({ coachUserId });
+    } catch {
+      return null;
+    }
+  },
+);
+
 const getQueryClient = cache(createQueryClient);
 
 export const trpc = createTRPCOptionsProxy<AppRouter>({

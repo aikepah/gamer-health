@@ -7,6 +7,7 @@ import type { ServiceCtx } from "../../ctx";
 import type { CoachProfileDetail } from "./getOrCreateCoachProfile";
 import { requireActiveUser } from "../../authz/requireRole";
 import { CoreError } from "../../lib/errors";
+import { isCoachDiscoverable } from "../discovery/publishedCoachWhere";
 import { buildCoachProfileDetail } from "./getOrCreateCoachProfile";
 
 export const getPublicCoachProfileInput = z.object({
@@ -47,14 +48,15 @@ export async function getPublicCoachProfile(
   if (!userRow || !coachProfileRow) {
     throw new CoreError("NOT_FOUND", "Coach not found");
   }
-  if (!isSelf) {
-    const visible =
-      coachProfileRow.isPublished &&
-      profileRow?.role === "coach" &&
-      profileRow.deactivatedAt == null;
-    if (!visible) {
-      throw new CoreError("NOT_FOUND", "Coach not found");
-    }
+  if (
+    !isSelf &&
+    !isCoachDiscoverable({
+      isPublished: coachProfileRow.isPublished,
+      role: profileRow?.role,
+      deactivatedAt: profileRow?.deactivatedAt,
+    })
+  ) {
+    throw new CoreError("NOT_FOUND", "Coach not found");
   }
 
   return buildCoachProfileDetail(

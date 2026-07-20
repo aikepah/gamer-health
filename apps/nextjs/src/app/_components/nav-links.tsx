@@ -21,6 +21,9 @@ const ADMIN_LINK = { href: "/admin", label: "Admin" } as const;
  */
 const COACH_LINKS = [{ href: "/coach/profile", label: "Coach" }] as const;
 
+/** Discovery (#10): browsing/applying to coaches is a player-facing concern. */
+const PLAYER_LINKS = [{ href: "/coaches", label: "Find a coach" }] as const;
+
 export function NavLinks({
   isAdmin,
   isCoach,
@@ -31,7 +34,7 @@ export function NavLinks({
   const pathname = usePathname();
   const links = [
     ...LINKS,
-    ...(isCoach ? COACH_LINKS : []),
+    ...(isCoach ? COACH_LINKS : PLAYER_LINKS),
     ...(isAdmin ? [ADMIN_LINK] : []),
   ];
 

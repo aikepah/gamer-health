@@ -293,3 +293,33 @@ export {
   getPublicCoachProfileInput,
 } from "./coaching/profile/getPublicCoachProfile";
 export type { GetPublicCoachProfileInput } from "./coaching/profile/getPublicCoachProfile";
+
+// --- Coach discovery & application (#10) ------------------------------------
+export {
+  isCoachDiscoverable,
+  publishedCoachWhere,
+} from "./coaching/discovery/publishedCoachWhere";
+export {
+  searchCoaches,
+  searchCoachesInput,
+} from "./coaching/discovery/searchCoaches";
+export type {
+  CoachSearchRow,
+  SearchCoachesInput,
+  SearchCoachesResult,
+} from "./coaching/discovery/searchCoaches";
+export {
+  applyToCoach,
+  applyToCoachInput,
+} from "./coaching/discovery/applyToCoach";
+export type {
+  ApplyToCoachInput,
+  ApplyToCoachResult,
+} from "./coaching/discovery/applyToCoach";
+export {
+  withdrawApplication,
+  withdrawApplicationInput,
+} from "./coaching/discovery/withdrawApplication";
+export type { WithdrawApplicationInput } from "./coaching/discovery/withdrawApplication";
+export { listMyApplications } from "./coaching/discovery/listMyApplications";
+export type { MyApplicationRow } from "./coaching/discovery/listMyApplications";

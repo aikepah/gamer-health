@@ -1,4 +1,5 @@
 import { createTRPCRouter } from "../../trpc";
+import { discoveryRouter } from "./discovery";
 import { profileRouter } from "./profile";
 
 /**
@@ -10,4 +11,5 @@ import { profileRouter } from "./profile";
  */
 export const coachingRouter = createTRPCRouter({
   profile: profileRouter,
+  discovery: discoveryRouter,
 });
