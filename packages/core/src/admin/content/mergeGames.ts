@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 
-import { eq } from "@gamer-health/db";
-import { Game, GameSession } from "@gamer-health/db/schema";
+import { eq, sql } from "@gamer-health/db";
+import { CoachGame, Game, GameSession } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
 import { requireRole } from "../../authz/requireRole";
@@ -68,8 +68,15 @@ export async function mergeGames(
       .where(eq(GameSession.gameId, input.sourceGameId))
       .returning({ id: GameSession.id });
 
-    // Wave-2 note (#9): a `coach_game` (games-coached) table lands then; when
-    // it exists, repoint its `gameId` from source to target here too.
+    // Repoint coaches-coached rows. Insert-then-delete (not UPDATE): a coach
+    // may already coach the target game, and the PK would reject the update.
+    await tx.execute(sql`
+      INSERT INTO coach_game (coach_user_id, game_id, created_at)
+      SELECT coach_user_id, ${input.targetGameId}::uuid, created_at
+      FROM coach_game WHERE game_id = ${input.sourceGameId}::uuid
+      ON CONFLICT DO NOTHING
+    `);
+    await tx.delete(CoachGame).where(eq(CoachGame.gameId, input.sourceGameId));
 
     // Delete the source BEFORE moving steamAppId to the target: the column
     // has a unique constraint, so setting the target while the source row

@@ -13,6 +13,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 
+import type { CoachSpecialty } from "@gamer-health/validators";
 import {
   ACHIEVEMENT_DEFS,
   BUILT_IN_HABIT_DEFINITIONS,
@@ -24,7 +25,10 @@ import { db } from "./client";
 import {
   AdminAuditLog,
   Checkin,
+  CoachAvailability,
+  CoachGame,
   CoachInvite,
+  CoachProfile,
   Game,
   GameSession,
   Habit,
@@ -48,6 +52,19 @@ const DEMO_ADMIN_NAME = "Demo Admin";
 const DEMO_COACH_EMAIL = "coach@gamerhealth.dev";
 const DEMO_COACH_PASSWORD = "coach1234";
 const DEMO_COACH_NAME = "Demo Coach";
+
+// Second published coach (#9): discovery (#10) needs more than one result,
+// and #11 needs a second coach to test multi-application.
+const DEMO_COACH2_EMAIL = "coach2@gamerhealth.dev";
+const DEMO_COACH2_PASSWORD = "coach2234";
+const DEMO_COACH2_NAME = "Dana Whitfield";
+
+// Third coach, deliberately left unpublished (#9): proves the publish gate
+// from a fresh seed — full profile data, but excluded from discovery until
+// someone flips `isPublished`.
+const DEMO_COACH3_EMAIL = "coach3@gamerhealth.dev";
+const DEMO_COACH3_PASSWORD = "coach3234";
+const DEMO_COACH3_NAME = "Unlisted Coach";
 
 // Minimal local Better Auth instance for seeding only. We can't import
 // @gamer-health/auth here: it depends on @gamer-health/db, so importing it
@@ -139,7 +156,19 @@ async function seedRoles() {
     DEMO_COACH_NAME,
     "coach",
   );
-  return { adminId, coachId };
+  const coach2Id = await seedRoleUser(
+    DEMO_COACH2_EMAIL,
+    DEMO_COACH2_PASSWORD,
+    DEMO_COACH2_NAME,
+    "coach",
+  );
+  const coach3Id = await seedRoleUser(
+    DEMO_COACH3_EMAIL,
+    DEMO_COACH3_PASSWORD,
+    DEMO_COACH3_NAME,
+    "coach",
+  );
+  return { adminId, coachId, coach2Id, coach3Id };
 }
 
 // --- Coach invites (#6): one row per derived status, so every accept-page
@@ -454,6 +483,129 @@ async function seedSessionTracking(demoUserId: string) {
       return [s.game, row] as const;
     }),
   );
+}
+
+// --- Coach profiles (#9): the demo coach + a second published coach + a
+// third, deliberately unpublished coach, so discovery (#10) has more than one
+// result and the publish gate is verifiable from a fresh seed. Runs after
+// `seedSessionTracking` (CATALOG_GAMES must already exist). -----------------
+
+interface SeedCoachProfileData {
+  coachUserId: string;
+  headline: string;
+  bio: string;
+  specialties: CoachSpecialty[];
+  isPublished: boolean;
+  gameNames: (typeof CATALOG_GAMES)[number]["name"][];
+  availability: { weekday: number; startMinute: number; endMinute: number }[];
+}
+
+async function seedCoachProfile(data: SeedCoachProfileData) {
+  await db
+    .insert(CoachProfile)
+    .values({
+      userId: data.coachUserId,
+      headline: data.headline,
+      bio: data.bio,
+      specialties: data.specialties,
+      isPublished: data.isPublished,
+      acceptingApplications: true,
+    })
+    .onConflictDoUpdate({
+      target: CoachProfile.userId,
+      set: {
+        headline: data.headline,
+        bio: data.bio,
+        specialties: data.specialties,
+        isPublished: data.isPublished,
+        acceptingApplications: true,
+      },
+    });
+
+  const games = await db.query.Game.findMany({
+    where: inArray(Game.name, [...data.gameNames]),
+  });
+  const gameIdByName = new Map(games.map((g) => [g.name, g.id]));
+  // Dedupe: a duplicate name in `gameNames` would insert the same
+  // (coachUserId, gameId) twice and trip coach_game's PK.
+  const gameIds = [...new Set(data.gameNames)].map((name) => {
+    const id = gameIdByName.get(name);
+    if (!id) {
+      throw new Error(`Seed game not found in catalog: ${name}`);
+    }
+    return id;
+  });
+
+  // Idempotency: wipe this coach's games/availability and re-insert.
+  await db.delete(CoachGame).where(eq(CoachGame.coachUserId, data.coachUserId));
+  await db
+    .insert(CoachGame)
+    .values(
+      gameIds.map((gameId) => ({ coachUserId: data.coachUserId, gameId })),
+    );
+
+  await db
+    .delete(CoachAvailability)
+    .where(eq(CoachAvailability.coachUserId, data.coachUserId));
+  await db.insert(CoachAvailability).values(
+    data.availability.map((block) => ({
+      coachUserId: data.coachUserId,
+      weekday: block.weekday,
+      startMinute: block.startMinute,
+      endMinute: block.endMinute,
+    })),
+  );
+}
+
+async function seedCoachProfiles(
+  coachId: string,
+  coach2Id: string,
+  coach3Id: string,
+) {
+  // Demo Coach (coach@gamerhealth.dev): published, Mon/Wed/Fri evenings + Sat
+  // late morning.
+  await seedCoachProfile({
+    coachUserId: coachId,
+    headline: "Sleep and focus coaching for competitive gamers",
+    bio: "Former collegiate esports player turned wellness coach. I help gamers build sustainable sleep and focus habits without sacrificing their grind.",
+    specialties: ["Sleep", "Focus & Attention"],
+    isPublished: true,
+    gameNames: ["League of Legends", "Fortnite"],
+    availability: [
+      { weekday: 1, startMinute: 1020, endMinute: 1200 }, // Mon 17:00-20:00
+      { weekday: 3, startMinute: 1020, endMinute: 1200 }, // Wed 17:00-20:00
+      { weekday: 5, startMinute: 1020, endMinute: 1200 }, // Fri 17:00-20:00
+      { weekday: 6, startMinute: 600, endMinute: 840 }, // Sat 10:00-14:00
+    ],
+  });
+
+  // Dana Whitfield (coach2@gamerhealth.dev): published, Tue/Thu evenings.
+  await seedCoachProfile({
+    coachUserId: coach2Id,
+    headline: "Screen-time balance and nutrition for casual + cozy gamers",
+    bio: "I work with gamers who want to enjoy long play sessions without losing track of meals, movement, and screen-time balance.",
+    specialties: ["Screen-Time Balance", "Nutrition"],
+    isPublished: true,
+    gameNames: ["Stardew Valley", "Minecraft"],
+    availability: [
+      { weekday: 2, startMinute: 1080, endMinute: 1260 }, // Tue 18:00-21:00
+      { weekday: 4, startMinute: 1080, endMinute: 1260 }, // Thu 18:00-21:00
+    ],
+  });
+
+  // Unlisted Coach (coach3@gamerhealth.dev): a complete profile, but left
+  // unpublished — flipping `isPublished` should make it appear in discovery.
+  await seedCoachProfile({
+    coachUserId: coach3Id,
+    headline: "Competitive performance coaching",
+    bio: "Not yet accepting new players — profile kept unpublished on purpose.",
+    specialties: ["Competitive Performance"],
+    isPublished: false,
+    gameNames: ["Elden Ring"],
+    availability: [
+      { weekday: 0, startMinute: 720, endMinute: 900 }, // Sun 12:00-15:00
+    ],
+  });
 }
 
 // --- Admin content management (#7): games-catalog curation demo data + one
@@ -992,7 +1144,7 @@ async function seed() {
   const demoUser = await seedDemoUser();
 
   // --- Roles: demo admin + demo coach accounts (demo user stays a player) ---
-  const { adminId, coachId } = await seedRoles();
+  const { adminId, coachId, coach2Id, coach3Id } = await seedRoles();
   await bootstrapAdminFromEnv();
 
   // --- Habit catalog: built-in habit definitions (upsert by slug) ---
@@ -1006,6 +1158,10 @@ async function seed() {
 
   // --- Session tracking: catalog + demo user's session history ---
   const sessionsByGame = await seedSessionTracking(demoUser.id);
+
+  // --- Coach profiles (#9): demo coach + a second published coach + a third,
+  // unpublished coach. Runs after seedSessionTracking (needs CATALOG_GAMES).
+  await seedCoachProfiles(coachId, coach2Id, coach3Id);
 
   // --- Habit engine: demo user's habits + representative historical prompts
   const prompts = await seedHabitEngine(

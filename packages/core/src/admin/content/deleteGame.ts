@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 
 import { count, eq } from "@gamer-health/db";
-import { Game, GameSession } from "@gamer-health/db/schema";
+import { CoachGame, Game, GameSession } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
 import { requireRole } from "../../authz/requireRole";
@@ -12,9 +12,11 @@ export const deleteGameInput = z.object({ gameId: z.uuid() });
 export type DeleteGameInput = z.infer<typeof deleteGameInput>;
 
 /**
- * Deletes a catalog game. Only allowed when zero `game_session` rows
- * reference it — the FK would block it at the DB level regardless, but we
- * check first so the error is a friendly CONFLICT suggesting merge.
+ * Deletes a catalog game. Only allowed when zero `game_session` rows and zero
+ * `coach_game` rows reference it — both FKs would block it at the DB level
+ * regardless (`coach_game` cascades, which would silently drop coach
+ * associations), but we check first so the error is a friendly CONFLICT
+ * suggesting merge.
  */
 export async function deleteGame(
   ctx: ServiceCtx,
@@ -37,6 +39,17 @@ export async function deleteGame(
     throw new CoreError(
       "CONFLICT",
       "This game has logged sessions — merge it into another game instead",
+    );
+  }
+
+  const [coachGameCountRow] = await ctx.db
+    .select({ value: count() })
+    .from(CoachGame)
+    .where(eq(CoachGame.gameId, input.gameId));
+  if ((coachGameCountRow?.value ?? 0) > 0) {
+    throw new CoreError(
+      "CONFLICT",
+      "Coaches list this game — merge it into another game instead",
     );
   }
 

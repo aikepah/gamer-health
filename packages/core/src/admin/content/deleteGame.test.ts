@@ -24,13 +24,16 @@ function makeCtx(config: {
   actorProfile?: ProfileSnapshot;
   existing?: GameRow;
   sessionCount?: number;
+  coachGameCount?: number;
 }) {
   const profileFindFirst = vi.fn().mockResolvedValue(config.actorProfile);
   const gameFindFirst = vi.fn().mockResolvedValue(config.existing);
 
+  // Called in order: game_session count, then coach_game count.
   const countSelectWhere = vi
     .fn()
-    .mockResolvedValue([{ value: config.sessionCount ?? 0 }]);
+    .mockResolvedValueOnce([{ value: config.sessionCount ?? 0 }])
+    .mockResolvedValueOnce([{ value: config.coachGameCount ?? 0 }]);
   const select = vi.fn(() => ({
     from: vi.fn().mockReturnThis(),
     where: countSelectWhere,
@@ -89,6 +92,20 @@ describe("deleteGame", () => {
       actorProfile: { role: "admin", deactivatedAt: null },
       existing: makeRow(),
       sessionCount: 2,
+    });
+    await expect(deleteGame(ctx, { gameId: "game_1" })).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: expect.stringContaining("merge") as string,
+    });
+    expect(deleteWhere).not.toHaveBeenCalled();
+  });
+
+  it("throws CoreError(CONFLICT) suggesting merge when coaches list this game", async () => {
+    const { ctx, deleteWhere } = makeCtx({
+      actorProfile: { role: "admin", deactivatedAt: null },
+      existing: makeRow(),
+      sessionCount: 0,
+      coachGameCount: 1,
     });
     await expect(deleteGame(ctx, { gameId: "game_1" })).rejects.toMatchObject({
       code: "CONFLICT",

@@ -41,6 +41,46 @@ export function formatMinutesAsHours(minutes: number): string {
   return `${(minutes / 60).toFixed(1)}h`;
 }
 
+/**
+ * Parses an `<input type="time">` value ("HH:MM") into minutes-from-midnight.
+ * Anything that isn't a valid HH:MM (including the empty value a cleared time
+ * input produces) yields 0 — `?? 0` alone wouldn't do it, since a non-numeric
+ * part parses to NaN rather than undefined.
+ */
+export function minutesFromTimeString(value: string): number {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value);
+  if (!match) {
+    return 0;
+  }
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) {
+    return 0;
+  }
+  return hours * 60 + minutes;
+}
+
+/**
+ * Formats minutes-from-midnight as an `<input type="time">` value ("HH:MM").
+ * Clamped to 0–1439: an input can't represent 24:00, so an end-of-day 1440
+ * renders as 23:59.
+ */
+export function timeStringFromMinutes(minutes: number): string {
+  const clamped = Math.min(1439, Math.max(0, minutes));
+  const hours = Math.floor(clamped / 60);
+  const mins = clamped % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+}
+
+/** Formats minutes-from-midnight (0-1440) as a 12-hour clock label, e.g. "5:00 PM". */
+export function formatMinuteOfDay(minutes: number): string {
+  const totalHours24 = Math.floor(minutes / 60) % 24;
+  const mins = minutes % 60;
+  const period = totalHours24 < 12 ? "AM" : "PM";
+  const hours12 = totalHours24 % 12 === 0 ? 12 : totalHours24 % 12;
+  return `${hours12}:${mins.toString().padStart(2, "0")} ${period}`;
+}
+
 /** Formats a "YYYY-MM-DD" local-date string as a short chart label, e.g. "Jul 14". */
 export function formatDateLabel(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
