@@ -16,11 +16,17 @@ import {
 
 export const updateCoachProfileInput = z.object({
   headline: z.string().trim().min(1).max(120).nullish(),
-  // Trimmed like `headline` above: normalization belongs at the service
-  // boundary, not in the UI — every caller (tRPC, seed, the post-MVP AI
-  // assistant) goes through this schema. An all-whitespace bio becomes "",
-  // which the service stores as null.
-  bio: z.string().trim().max(4000).nullish(),
+  // Trimmed like `headline` above, and normalized to null when empty:
+  // normalization belongs at the service boundary, not in the UI, since every
+  // caller (tRPC, seed, the post-MVP AI assistant) goes through this schema.
+  // Doing the empty -> null collapse here keeps "no bio" to one representation
+  // without the service body having to branch.
+  bio: z
+    .string()
+    .trim()
+    .max(4000)
+    .nullish()
+    .transform((value) => (value === undefined || value === "" ? null : value)),
   specialties: z.array(z.enum(COACH_SPECIALTIES)).max(8).default([]),
 });
 export type UpdateCoachProfileInput = z.infer<typeof updateCoachProfileInput>;
@@ -40,9 +46,7 @@ export async function updateCoachProfile(
     .update(CoachProfile)
     .set({
       headline: input.headline ?? null,
-      // "" (an all-whitespace bio after trimming) stores as null, so "no bio"
-      // has exactly one representation.
-      bio: input.bio ? input.bio : null,
+      bio: input.bio,
       specialties: input.specialties,
     })
     .where(eq(CoachProfile.userId, authz.userId))
