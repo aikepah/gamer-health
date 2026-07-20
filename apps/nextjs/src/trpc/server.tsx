@@ -64,9 +64,11 @@ export const getInviteByToken = cache(
  * Server-side `coaching.profile.getPublic` fetch for `/coaches/[coachUserId]`,
  * which needs to branch synchronously into a 404 (`notFound()`) for an
  * unknown, unpublished, or deactivated coach rather than just prefetching for
- * client hydration. `getPublicCoachProfile` only ever throws `NOT_FOUND`, so
- * any failure here means "no such visible coach" — same convention as
- * `getInviteByToken` above.
+ * client hydration. Any throw is treated as "not visible to this caller":
+ * `NOT_FOUND` for an unknown/unpublished/deactivated coach, but also
+ * `FORBIDDEN` if the *caller* is deactivated (`requireActiveUser`) — both
+ * should render the same 404 rather than leak which case applies. Same
+ * catch-all convention as `getInviteByToken` above.
  */
 export const getPublicCoachProfileOrNull = cache(
   async (

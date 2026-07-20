@@ -6,12 +6,17 @@ import { withdrawApplication } from "./withdrawApplication";
 function makeCtx(config: {
   callerId?: string;
   row?: { playerUserId: string; status: string } | undefined;
+  /** Rows affected by the conditional UPDATE; [] simulates losing the race. */
+  updatedRows?: { id: string }[];
 }) {
   const findFirst = vi.fn().mockResolvedValue(config.row);
   const profileFindFirst = vi
     .fn()
     .mockResolvedValue({ role: "player", deactivatedAt: null });
-  const where = vi.fn().mockResolvedValue(undefined);
+  const returning = vi
+    .fn()
+    .mockResolvedValue(config.updatedRows ?? [{ id: "rel_1" }]);
+  const where = vi.fn(() => ({ returning }));
   const set = vi.fn((_patch: { status: string; respondedAt: Date }) => ({
     where,
   }));
@@ -73,5 +78,21 @@ describe("withdrawApplication", () => {
     );
     const arg = set.mock.calls[0]?.[0] as { respondedAt: Date };
     expect(arg.respondedAt).toBeInstanceOf(Date);
+  });
+
+  it("throws CONFLICT when the conditional update matches nothing (lost race)", async () => {
+    // The row read as `applied`, but a concurrent accept/decline (#11) changed
+    // it before the write landed, so the guarded UPDATE affects zero rows.
+    const { ctx } = makeCtx({
+      row: { playerUserId: "player_1", status: "applied" },
+      updatedRows: [],
+    });
+
+    await expect(
+      withdrawApplication(ctx, { relationshipId: "rel_1" }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "This application can no longer be withdrawn",
+    });
   });
 });

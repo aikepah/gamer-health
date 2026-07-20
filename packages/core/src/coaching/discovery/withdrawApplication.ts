@@ -1,6 +1,6 @@
 import { z } from "zod/v4";
 
-import { eq } from "@gamer-health/db";
+import { and, eq } from "@gamer-health/db";
 import { CoachingRelationship } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
@@ -38,8 +38,27 @@ export async function withdrawApplication(
     );
   }
 
-  await ctx.db
+  // Conditional on the row still being this caller's `applied` row: the read
+  // above is not atomic with this write, and #11 adds accept/decline, which
+  // race directly with withdraw. Scoped by id alone, a coach accepting between
+  // the read and the write would have their `active` relationship silently
+  // flipped to `withdrawn`. Zero updated rows means we lost that race.
+  const updated = await ctx.db
     .update(CoachingRelationship)
     .set({ status: "withdrawn", respondedAt: new Date() })
-    .where(eq(CoachingRelationship.id, input.relationshipId));
+    .where(
+      and(
+        eq(CoachingRelationship.id, input.relationshipId),
+        eq(CoachingRelationship.playerUserId, authz.userId),
+        eq(CoachingRelationship.status, "applied"),
+      ),
+    )
+    .returning({ id: CoachingRelationship.id });
+
+  if (updated.length === 0) {
+    throw new CoreError(
+      "CONFLICT",
+      "This application can no longer be withdrawn",
+    );
+  }
 }
