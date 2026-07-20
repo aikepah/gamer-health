@@ -8,10 +8,9 @@ import { CoreError } from "../../lib/errors";
 export type CoachingRelationshipRow = typeof CoachingRelationship.$inferSelect;
 
 /**
- * Internal helper — the shared reader behind `assertCoachOf` and
- * `requireMyCoachRelationship`: is there an ACTIVE relationship between this
- * exact player and this exact coach. Returns the full row (not just
- * existence) since #13/#15 need `id`/`startedAt` from it.
+ * Internal helper — checks whether there is an ACTIVE relationship between this
+ * exact player and this exact coach. Returns the full row (not just existence)
+ * since #13/#15 need `id`/`startedAt` from it.
  */
 export async function findActiveRelationship(
   ctx: ServiceCtx,
