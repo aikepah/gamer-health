@@ -1,11 +1,11 @@
 import { z } from "zod/v4";
 
-import { eq } from "@gamer-health/db";
+import { and, eq } from "@gamer-health/db";
 import { Goal } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
 import type { GoalRow } from "./common";
-import { requireUserId } from "../../lib/auth";
+import { requireActiveUser } from "../../authz/requireRole";
 import { CoreError } from "../../lib/errors";
 import { nullableText } from "./common";
 
@@ -26,7 +26,10 @@ export async function updateGoalProgress(
   ctx: ServiceCtx,
   input: UpdateGoalProgressInput,
 ): Promise<GoalRow> {
-  const userId = requireUserId(ctx);
+  // `requireActiveUser`, not `requireUserId`: the latter only checks that a
+  // session exists and never loads the profile, so a deactivated player
+  // could still write here while every sibling goal service refused them.
+  const { userId } = await requireActiveUser(ctx);
 
   const goal = await ctx.db.query.Goal.findFirst({
     where: eq(Goal.id, input.goalId),
@@ -35,10 +38,13 @@ export async function updateGoalProgress(
     throw new CoreError("NOT_FOUND", "Goal not found");
   }
 
+  // Ownership is re-asserted in the WHERE rather than trusted from the read
+  // above, which isn't atomic with this write — same conditional-update
+  // pattern as `withdrawApplication`.
   const [updated] = await ctx.db
     .update(Goal)
     .set({ progressNote: input.progressNote })
-    .where(eq(Goal.id, input.goalId))
+    .where(and(eq(Goal.id, input.goalId), eq(Goal.playerUserId, userId)))
     .returning();
   if (!updated) {
     throw new CoreError("NOT_FOUND", "Goal not found");

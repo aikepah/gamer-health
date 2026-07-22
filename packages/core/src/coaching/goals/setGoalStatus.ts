@@ -46,8 +46,15 @@ export async function setGoalStatus(
   if (goal.playerUserId !== authz.userId) {
     try {
       await assertCoachOf(ctx, goal.playerUserId);
-    } catch {
-      throw new CoreError("FORBIDDEN");
+    } catch (err) {
+      // Only an authorization failure is flattened to a bare FORBIDDEN, so
+      // the caller can't tell "not your goal" from "not their coach".
+      // Anything else — a DB blip, a bug inside assertCoachOf — must
+      // propagate, or real failures get misreported as permission errors.
+      if (err instanceof CoreError && err.code === "FORBIDDEN") {
+        throw new CoreError("FORBIDDEN");
+      }
+      throw err;
     }
   }
 

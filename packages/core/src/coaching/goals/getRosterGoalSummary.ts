@@ -4,6 +4,7 @@ import { CoachingRelationship, Goal } from "@gamer-health/db/schema";
 import type { ServiceCtx } from "../../ctx";
 import { requireRole } from "../../authz/requireRole";
 import { localDateString } from "../../lib/dates";
+import { getOrCreateProfile } from "../../profile/getOrCreateProfile";
 
 export interface RosterGoalSummaryRow {
   playerUserId: string;
@@ -20,11 +21,19 @@ export interface RosterGoalSummaryRow {
  * assigned under a since-ended relationship still counts if the same coach
  * and player are active again under a new one.
  *
- * `overdue` is computed against UTC "today" rather than each player's own
- * timezone: this is a single aggregate query across the whole roster, and
- * per-player timezone lookups would turn it back into a loop. The
- * individual player views (`listMyGoals`/`listPlayerGoals`) are the
- * timezone-accurate source of truth; this chip is a rough-cut summary.
+ * Scoped to `goal.assigned_by_user_id = <this coach>`: goals outlive the
+ * relationship that created them, and `assignedByUserId` is nullable for
+ * player-authored self-goals, so an unscoped join would count a previous
+ * coach's goals and the player's own private goals in this coach's chip.
+ *
+ * `overdue` is computed against the COACH's local "today", not each
+ * player's: this is one grouped query across the whole roster, and
+ * per-player timezone lookups would turn it back into a loop. The coach is
+ * the only viewer of this chip, so their own day boundary is the meaningful
+ * one — and it beats the hardcoded UTC this previously used, which flagged
+ * goals overdue up to a day early for anyone west of UTC. The individual
+ * player views (`listMyGoals`/`listPlayerGoals`) remain the timezone-exact
+ * source of truth; this chip is a rough-cut summary.
  *
  * Only returns rows for players with at least one goal — a player with none
  * has no row, and callers should treat a missing `playerUserId` as all
@@ -34,7 +43,10 @@ export async function getRosterGoalSummary(
   ctx: ServiceCtx,
 ): Promise<RosterGoalSummaryRow[]> {
   const authz = await requireRole(ctx, ["coach"]);
-  const today = localDateString(new Date(), "UTC");
+  // The coach is the caller here, so their own profile is the right (and
+  // already-available) source for the day boundary.
+  const coachProfile = await getOrCreateProfile(ctx);
+  const today = localDateString(new Date(), coachProfile.timezone ?? "UTC");
 
   const rows = await ctx.db
     .select({
@@ -49,6 +61,7 @@ export async function getRosterGoalSummary(
       and(
         eq(CoachingRelationship.coachUserId, authz.userId),
         eq(CoachingRelationship.status, "active"),
+        eq(Goal.assignedByUserId, authz.userId),
       ),
     )
     .groupBy(CoachingRelationship.playerUserId);
