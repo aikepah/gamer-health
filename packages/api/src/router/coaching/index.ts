@@ -1,5 +1,6 @@
 import { createTRPCRouter } from "../../trpc";
 import { discoveryRouter } from "./discovery";
+import { goalsRouter } from "./goals";
 import { profileRouter } from "./profile";
 import { relationshipsRouter } from "./relationships";
 
@@ -14,4 +15,5 @@ export const coachingRouter = createTRPCRouter({
   profile: profileRouter,
   discovery: discoveryRouter,
   relationships: relationshipsRouter,
+  goals: goalsRouter,
 });

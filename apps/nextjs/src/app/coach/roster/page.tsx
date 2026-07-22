@@ -8,6 +8,7 @@ export default function CoachRosterPage() {
   prefetch(
     trpc.coaching.relationships.roster.queryOptions({ status: "active" }),
   );
+  prefetch(trpc.coaching.goals.rosterSummary.queryOptions());
 
   return (
     <HydrateClient>

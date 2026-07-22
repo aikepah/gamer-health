@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   useMutation,
   useQueryClient,
@@ -27,6 +28,14 @@ export function RosterPanel() {
   );
   const { data: roster } = useSuspenseQuery(
     trpc.coaching.relationships.roster.queryOptions({ status: "active" }),
+  );
+  // Goals (#13): per-player open/overdue/completed counts for the chip
+  // below. Missing from this map (a player with zero goals) means all zeros.
+  const { data: goalSummary } = useSuspenseQuery(
+    trpc.coaching.goals.rosterSummary.queryOptions(),
+  );
+  const goalSummaryByPlayer = new Map(
+    goalSummary.map((row) => [row.playerUserId, row]),
   );
 
   const [declineTarget, setDeclineTarget] = useState<{
@@ -131,25 +140,38 @@ export function RosterPanel() {
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {roster.map((entry) => (
-              <li
-                key={entry.relationshipId}
-                className="flex items-center justify-between gap-4 rounded-lg border p-3"
-              >
-                <div>
-                  <p className="font-medium">{entry.player.name}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {entry.player.email}
-                  </p>
-                </div>
-                {entry.startedAt && (
-                  <p className="text-muted-foreground text-xs">
-                    Coaching since{" "}
-                    {new Date(entry.startedAt).toLocaleDateString()}
-                  </p>
-                )}
-              </li>
-            ))}
+            {roster.map((entry) => {
+              const goals = goalSummaryByPlayer.get(entry.player.userId);
+              return (
+                <li key={entry.relationshipId}>
+                  <Link
+                    href={`/coach/players/${entry.player.userId}`}
+                    className="hover:bg-muted flex items-center justify-between gap-4 rounded-lg border p-3 transition-colors"
+                  >
+                    <div>
+                      <p className="font-medium">{entry.player.name}</p>
+                      <p className="text-muted-foreground text-xs">
+                        {entry.player.email}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {entry.startedAt && (
+                        <p className="text-muted-foreground text-xs">
+                          Coaching since{" "}
+                          {new Date(entry.startedAt).toLocaleDateString()}
+                        </p>
+                      )}
+                      <p className="text-muted-foreground text-xs">
+                        {goals?.open ?? 0} open
+                        {goals &&
+                          goals.overdue > 0 &&
+                          ` · ${goals.overdue} overdue`}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
