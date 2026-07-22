@@ -1021,6 +1021,154 @@ async function seedHabitEngine(
   return db.insert(HabitPrompt).values(prompts).returning();
 }
 
+// --- Coach habit assignment (#14): two coach-authored definitions (both
+// out-of-game — nutrition and mobility, the explicit non-gaming-habit
+// product requirement) plus three assignment states on the demo player: an
+// active custom assignment, a paused custom assignment, and a built-in
+// default the coach took over after the player had already self-adopted it.
+// Must run after seedHabitEngine above (which wipes/re-seeds the demo
+// user's Habit rows) so the hydrate-reassignment update below has a row to
+// find, and before seedAdminContentDemo for the same reason it documents. --
+
+const COACH_HABIT_DEFS = [
+  {
+    title: "Protein with lunch",
+    description:
+      "Getting enough protein at lunch supports recovery and steady energy for evening sessions.",
+    promptText: "Add a protein source to lunch",
+    triggerType: "daily_schedule" as const,
+    defaultConfig: { timeOfDay: "12:30" },
+  },
+  {
+    title: "Evening mobility",
+    description:
+      "A short mobility routine in the evening counteracts hours of sitting.",
+    promptText: "Do a 10-minute mobility routine",
+    triggerType: "daily_schedule" as const,
+    defaultConfig: { timeOfDay: "20:00" },
+  },
+] as const;
+
+/**
+ * Upserts the coach's two custom definitions by (createdByUserId, title) —
+ * there's no unique index to target for a coach-authored definition (unlike
+ * built-ins, which upsert by `slug`), so this looks the row up first.
+ */
+async function seedCoachHabitDefinitions(
+  coachId: string,
+): Promise<Map<string, string>> {
+  const byTitle = new Map<string, string>();
+
+  for (const def of COACH_HABIT_DEFS) {
+    const existing = await db.query.HabitDefinition.findFirst({
+      where: and(
+        eq(HabitDefinition.createdByUserId, coachId),
+        eq(HabitDefinition.title, def.title),
+      ),
+    });
+    if (existing) {
+      await db
+        .update(HabitDefinition)
+        .set({
+          description: def.description,
+          promptText: def.promptText,
+          defaultConfig: def.defaultConfig,
+        })
+        .where(eq(HabitDefinition.id, existing.id));
+      byTitle.set(def.title, existing.id);
+      continue;
+    }
+
+    const [row] = await db
+      .insert(HabitDefinition)
+      .values({
+        slug: null,
+        title: def.title,
+        description: def.description,
+        promptText: def.promptText,
+        triggerType: def.triggerType,
+        defaultConfig: def.defaultConfig,
+        isDefault: false,
+        createdByUserId: coachId,
+      })
+      .returning();
+    if (!row) {
+      throw new Error(`Failed to seed coach habit definition: ${def.title}`);
+    }
+    byTitle.set(def.title, row.id);
+  }
+
+  return byTitle;
+}
+
+async function seedCoachHabitAssignments(
+  demoUserId: string,
+  coachId: string,
+  definitionIdBySlug: Map<string, string>,
+) {
+  const defIdByTitle = await seedCoachHabitDefinitions(coachId);
+  const proteinDefId = defIdByTitle.get("Protein with lunch");
+  const mobilityDefId = defIdByTitle.get("Evening mobility");
+  if (!proteinDefId || !mobilityDefId) {
+    throw new Error("Seed coach habit definitions not found");
+  }
+
+  // "Protein with lunch": active assignment from the demo coach — the
+  // coach-custom, enabled assignment path.
+  await db
+    .insert(Habit)
+    .values({
+      userId: demoUserId,
+      definitionId: proteinDefId,
+      enabled: true,
+      config: { timeOfDay: "12:30" },
+      assignedByUserId: coachId,
+    })
+    .onConflictDoUpdate({
+      target: [Habit.userId, Habit.definitionId],
+      set: {
+        enabled: true,
+        config: { timeOfDay: "12:30" },
+        assignedByUserId: coachId,
+      },
+    });
+
+  // "Evening mobility": assigned but paused, so the paused-assigned state
+  // (player-side "Resume", coach-side "enabled: false") is reachable.
+  await db
+    .insert(Habit)
+    .values({
+      userId: demoUserId,
+      definitionId: mobilityDefId,
+      enabled: false,
+      config: { timeOfDay: "20:00" },
+      assignedByUserId: coachId,
+    })
+    .onConflictDoUpdate({
+      target: [Habit.userId, Habit.definitionId],
+      set: {
+        enabled: false,
+        config: { timeOfDay: "20:00" },
+        assignedByUserId: coachId,
+      },
+    });
+
+  // Built-in "hydrate": seedHabitEngine already self-adopted this for the
+  // demo user. Stamp it as coach-assigned too (assign is exactly this
+  // upsert-and-take-over in the real service) so the "default catalog
+  // habit reassigned by a coach" path renders as well.
+  const hydrateDefId = definitionIdBySlug.get("hydrate");
+  if (!hydrateDefId) {
+    throw new Error("Seed built-in habit definition not found: hydrate");
+  }
+  await db
+    .update(Habit)
+    .set({ assignedByUserId: coachId })
+    .where(
+      and(eq(Habit.userId, demoUserId), eq(Habit.definitionId, hydrateDefId)),
+    );
+}
+
 // --- Check-ins: demo user's daily + post_session history. None dated today
 // so the home page's "Daily check-in" card is visible from a fresh seed. ---
 
@@ -1312,6 +1460,12 @@ async function seed() {
     sessionsByGame,
     definitionIdBySlug,
   );
+
+  // --- Coach habit assignment (#14): coach-authored definitions (one
+  // nutrition, one mobility — non-gaming habits) + assigned instances on the
+  // demo player. Runs after seedHabitEngine for the same reason the admin
+  // content section below does (needs the demo user's Habit rows in place).
+  await seedCoachHabitAssignments(demoUser.id, coachId, definitionIdBySlug);
 
   // --- Admin content management (#7): games-catalog curation demo data +
   // one admin-created default habit definition. Runs after the habit engine

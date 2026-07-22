@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   useMutation,
   useQueryClient,
@@ -148,6 +149,12 @@ export function RosterPanel() {
                     {new Date(entry.startedAt).toLocaleDateString()}
                   </p>
                 )}
+                {/* #12/#13/#14's shared player-detail page. */}
+                <Button asChild size="sm" variant="outline">
+                  <Link href={`/coach/players/${entry.player.userId}`}>
+                    View
+                  </Link>
+                </Button>
               </li>
             ))}
           </ul>

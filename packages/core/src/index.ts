@@ -172,6 +172,12 @@ export type {
 export { upsertHabit, upsertHabitInput } from "./habits/upsertHabit";
 export type { HabitRow, UpsertHabitInput } from "./habits/upsertHabit";
 export { validateHabitConfig } from "./habits/validateHabitConfig";
+export { queryHabitCompletionRaw } from "./habits/queryHabitCompletionRaw";
+export type {
+  HabitCompletionRawRow,
+  NonPendingPromptStatus,
+  QueryHabitCompletionRawParams,
+} from "./habits/queryHabitCompletionRaw";
 export { getOrCreateProfile } from "./profile/getOrCreateProfile";
 export type { ProfileRow } from "./profile/getOrCreateProfile";
 export { updateProfile, updateProfileInput } from "./profile/updateProfile";
@@ -355,3 +361,41 @@ export type {
 } from "./coaching/relationships/listCoachRoster";
 export { getMyCoach } from "./coaching/relationships/getMyCoach";
 export type { MyCoachSummary } from "./coaching/relationships/getMyCoach";
+
+// Coach habit assignment (#14, docs/features/coach-habit-assignment.md).
+export {
+  createCoachHabitDefinition,
+  createCoachHabitDefinitionInput,
+} from "./coaching/habits/createCoachHabitDefinition";
+export type { CreateCoachHabitDefinitionInput } from "./coaching/habits/createCoachHabitDefinition";
+export {
+  updateCoachHabitDefinition,
+  updateCoachHabitDefinitionInput,
+} from "./coaching/habits/updateCoachHabitDefinition";
+export type { UpdateCoachHabitDefinitionInput } from "./coaching/habits/updateCoachHabitDefinition";
+export {
+  setCoachHabitDefinitionArchived,
+  setCoachHabitDefinitionArchivedInput,
+} from "./coaching/habits/setCoachHabitDefinitionArchived";
+export type { SetCoachHabitDefinitionArchivedInput } from "./coaching/habits/setCoachHabitDefinitionArchived";
+export { listCoachHabitDefinitions } from "./coaching/habits/listCoachHabitDefinitions";
+export type { CoachHabitDefinitionRow } from "./coaching/habits/listCoachHabitDefinitions";
+export { listAssignableHabitDefinitions } from "./coaching/habits/listAssignableHabitDefinitions";
+export {
+  assignHabitToPlayer,
+  assignHabitToPlayerInput,
+} from "./coaching/habits/assignHabitToPlayer";
+export type { AssignHabitToPlayerInput } from "./coaching/habits/assignHabitToPlayer";
+export {
+  unassignHabitFromPlayer,
+  unassignHabitFromPlayerInput,
+} from "./coaching/habits/unassignHabitFromPlayer";
+export type { UnassignHabitFromPlayerInput } from "./coaching/habits/unassignHabitFromPlayer";
+export {
+  listPlayerHabitsForCoach,
+  listPlayerHabitsForCoachInput,
+} from "./coaching/habits/listPlayerHabitsForCoach";
+export type {
+  CoachPlayerHabitRow,
+  ListPlayerHabitsForCoachInput,
+} from "./coaching/habits/listPlayerHabitsForCoach";

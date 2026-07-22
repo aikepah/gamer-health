@@ -22,6 +22,7 @@ const ADMIN_LINK = { href: "/admin", label: "Admin" } as const;
 const COACH_LINKS = [
   { href: "/coach/profile", label: "Coach" },
   { href: "/coach/roster", label: "Roster" },
+  { href: "/coach/habits", label: "My habits" },
 ] as const;
 
 /** Discovery (#10): browsing/applying to coaches is a player-facing concern. */
