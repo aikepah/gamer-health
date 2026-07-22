@@ -26,7 +26,11 @@ function makeCtx(config: {
     select,
   } as unknown as ServiceCtx["db"];
 
-  return { ctx: { db, userId: config.userId } as ServiceCtx, findMany, relationshipFindFirst };
+  return {
+    ctx: { db, userId: config.userId } as ServiceCtx,
+    findMany,
+    relationshipFindFirst,
+  };
 }
 
 describe("listCoachPlayerSessions", () => {
@@ -83,7 +87,10 @@ describe("listCoachPlayerSessions", () => {
     // assertCoachOf's relationship lookup ran (proving the gate executed).
     expect(relationshipFindFirst).toHaveBeenCalledTimes(1);
     // The query for the PLAYER's sessions, not the coach's own.
-    const arg = findMany.mock.calls[0]?.[0] as { limit: number; offset: number };
+    const arg = findMany.mock.calls[0]?.[0] as {
+      limit: number;
+      offset: number;
+    };
     expect(arg.limit).toBe(10);
     expect(arg.offset).toBe(0);
   });

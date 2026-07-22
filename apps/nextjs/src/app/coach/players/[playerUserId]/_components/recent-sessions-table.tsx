@@ -17,7 +17,11 @@ const PAGE_SIZE = 10;
  * `coaching.players.sessions`, which re-authorizes via `assertCoachOf` on
  * every page.
  */
-export function RecentSessionsTable({ playerUserId }: { playerUserId: string }) {
+export function RecentSessionsTable({
+  playerUserId,
+}: {
+  playerUserId: string;
+}) {
   const trpc = useTRPC();
   const [offset, setOffset] = useState(0);
 
@@ -54,7 +58,9 @@ export function RecentSessionsTable({ playerUserId }: { playerUserId: string }) 
                     {new Date(session.startedAt).toLocaleString()} ·{" "}
                     {formatDuration(durationMs)}
                   </p>
-                  {session.notes && <p className="mt-1 text-sm">{session.notes}</p>}
+                  {session.notes && (
+                    <p className="mt-1 text-sm">{session.notes}</p>
+                  )}
                 </div>
               </li>
             );

@@ -1,7 +1,8 @@
 "use client";
 
-import type { GamificationSummary } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
+
+import type { GamificationSummary } from "@gamer-health/core";
 
 import { useTRPC } from "~/trpc/react";
 

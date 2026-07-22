@@ -137,6 +137,12 @@ export async function getHabitCompletionStats(
   const today = localDateString(new Date(), tz);
   const { startDate, endDate } = buildLocalDateRange(today, input.days);
 
-  const rows = await queryHabitCompletionRaw(ctx, userId, tz, startDate, endDate);
+  const rows = await queryHabitCompletionRaw(
+    ctx,
+    userId,
+    tz,
+    startDate,
+    endDate,
+  );
   return aggregateHabitCompletion(rows);
 }

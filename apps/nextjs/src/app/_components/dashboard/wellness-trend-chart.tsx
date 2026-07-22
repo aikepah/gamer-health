@@ -1,6 +1,5 @@
 "use client";
 
-import type { WellnessTrendDay } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   CartesianGrid,
@@ -12,6 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+import type { WellnessTrendDay } from "@gamer-health/core";
 
 import { formatDateLabel } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";

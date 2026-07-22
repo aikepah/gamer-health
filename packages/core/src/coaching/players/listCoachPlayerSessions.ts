@@ -3,7 +3,10 @@ import { z } from "zod/v4";
 import type { ServiceCtx } from "../../ctx";
 import type { ListSessionsResult } from "../../sessions/listSessions";
 import { assertCoachOf } from "../../authz/assertCoachOf";
-import { listSessionsFor, listSessionsInput } from "../../sessions/listSessions";
+import {
+  listSessionsFor,
+  listSessionsInput,
+} from "../../sessions/listSessions";
 
 export const listCoachPlayerSessionsInput = listSessionsInput.extend({
   playerUserId: z.string().min(1),

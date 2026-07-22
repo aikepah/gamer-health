@@ -1,7 +1,8 @@
 "use client";
 
-import type { HabitCompletionStats } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
+
+import type { HabitCompletionStats } from "@gamer-health/core";
 
 import { useTRPC } from "~/trpc/react";
 import { ChartCard, ChartEmptyState, ChartSkeleton } from "./chart-card";
@@ -40,7 +41,9 @@ export function HabitCompletionCard({
   if (data.completionRate === null) {
     return (
       <ChartCard title="Habit completion" subtitle={subtitle}>
-        <ChartEmptyState message={`No habit prompts in the last ${rangeDays} days. Enable a habit to start tracking.`} />
+        <ChartEmptyState
+          message={`No habit prompts in the last ${rangeDays} days. Enable a habit to start tracking.`}
+        />
       </ChartCard>
     );
   }

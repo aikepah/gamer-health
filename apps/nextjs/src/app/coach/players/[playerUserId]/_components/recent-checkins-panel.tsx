@@ -66,7 +66,9 @@ export function RecentCheckinsPanel({
               </div>
               <div className="mt-1 flex gap-3">
                 <span>Mood {checkin.mood}/5</span>
-                {checkin.energy !== null && <span>Energy {checkin.energy}/5</span>}
+                {checkin.energy !== null && (
+                  <span>Energy {checkin.energy}/5</span>
+                )}
                 {checkin.sleepQuality !== null && (
                   <span>Sleep {checkin.sleepQuality}/5</span>
                 )}

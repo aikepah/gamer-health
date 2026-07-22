@@ -1,3 +1,19 @@
+/**
+ * Public surface of the domain layer.
+ *
+ * DELIBERATELY NOT EXPORTED: the explicit-user reader variants
+ * (`listCheckinsFor`, `listSessionsFor`, `getGamificationSummaryFor`,
+ * `queryHabitCompletionRaw`, `getProfileFor`). They take an arbitrary
+ * `userId` and perform NO authorization — they exist so an already-
+ * authorized caller (a coach-scoped service that ran `assertCoachOf` first)
+ * can read a specific target user without re-authorizing per query.
+ *
+ * Everything exported here is reachable by the post-MVP AI assistant as a
+ * Claude tool, so an unauthenticated whole-user reader on this surface would
+ * let the assistant read any user's data by passing a different id. Import
+ * them by relative path from inside `packages/core` only, immediately after
+ * an authorization check.
+ */
 export type { ServiceCtx } from "./ctx";
 export { ADMIN_AUDIT_ACTIONS, recordAdminAudit } from "./admin/audit";
 export type { AdminAuditAction, RecordAdminAuditEntry } from "./admin/audit";
@@ -74,11 +90,7 @@ export { createCheckin, createCheckinInput } from "./checkins/createCheckin";
 export type { CreateCheckinInput } from "./checkins/createCheckin";
 export { getTodayCheckinStatus } from "./checkins/getTodayStatus";
 export type { TodayCheckinStatus } from "./checkins/getTodayStatus";
-export {
-  listCheckins,
-  listCheckinsFor,
-  listCheckinsInput,
-} from "./checkins/listCheckins";
+export { listCheckins, listCheckinsInput } from "./checkins/listCheckins";
 export type {
   ListCheckinsInput,
   ListCheckinsResult,
@@ -92,7 +104,6 @@ export { xpForLevel, levelFromXp, levelProgress } from "./gamification/level";
 export type { LevelProgress } from "./gamification/level";
 export {
   getGamificationSummary,
-  getGamificationSummaryFor,
   getGamificationSummaryInput,
   listAchievements,
   listRecentRewardEvents,
@@ -131,7 +142,6 @@ export {
   aggregateHabitCompletion,
   getHabitCompletionStats,
   getHabitCompletionStatsInput,
-  queryHabitCompletionRaw,
 } from "./dashboard/getHabitCompletionStats";
 export type {
   GetHabitCompletionStatsInput,
@@ -180,7 +190,6 @@ export type { HabitRow, UpsertHabitInput } from "./habits/upsertHabit";
 export { validateHabitConfig } from "./habits/validateHabitConfig";
 export { getOrCreateProfile } from "./profile/getOrCreateProfile";
 export type { ProfileRow } from "./profile/getOrCreateProfile";
-export { getProfileFor } from "./profile/getProfileFor";
 export { updateProfile, updateProfileInput } from "./profile/updateProfile";
 export type { UpdateProfileInput } from "./profile/updateProfile";
 export { deleteSession, deleteSessionInput } from "./sessions/deleteSession";
@@ -197,11 +206,7 @@ export type {
   GetOrCreateGameInput,
   SearchGamesInput,
 } from "./sessions/games";
-export {
-  listSessions,
-  listSessionsFor,
-  listSessionsInput,
-} from "./sessions/listSessions";
+export { listSessions, listSessionsInput } from "./sessions/listSessions";
 export type {
   ListSessionsInput,
   ListSessionsResult,

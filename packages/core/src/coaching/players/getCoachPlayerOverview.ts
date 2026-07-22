@@ -15,9 +15,15 @@ import {
   aggregateHabitCompletion,
   queryHabitCompletionRaw,
 } from "../../dashboard/getHabitCompletionStats";
-import { queryPlaytimeRaw, zeroFillPlaytime } from "../../dashboard/getPlaytimeByDay";
+import {
+  queryPlaytimeRaw,
+  zeroFillPlaytime,
+} from "../../dashboard/getPlaytimeByDay";
 import { mergePlaytimeAndMood } from "../../dashboard/getPlaytimeVsWellness";
-import { queryWellnessRaw, zeroFillWellness } from "../../dashboard/getWellnessTrend";
+import {
+  queryWellnessRaw,
+  zeroFillWellness,
+} from "../../dashboard/getWellnessTrend";
 import { getGamificationSummaryFor } from "../../gamification/queries";
 import { requireUserId } from "../../lib/auth";
 import { localDateString } from "../../lib/dates";
@@ -89,14 +95,12 @@ export async function getCoachPlayerOverview(
   const today = localDateString(new Date(), tz);
   const { startDate, endDate, dates } = buildLocalDateRange(today, input.days);
 
-  const [gamification, playtimeRaw, wellnessRaw, habitRaw] = await Promise.all(
-    [
-      getGamificationSummaryFor(ctx, playerUserId),
-      queryPlaytimeRaw(ctx, playerUserId, tz, startDate, endDate),
-      queryWellnessRaw(ctx, playerUserId, tz, startDate, endDate),
-      queryHabitCompletionRaw(ctx, playerUserId, tz, startDate, endDate),
-    ],
-  );
+  const [gamification, playtimeRaw, wellnessRaw, habitRaw] = await Promise.all([
+    getGamificationSummaryFor(ctx, playerUserId),
+    queryPlaytimeRaw(ctx, playerUserId, tz, startDate, endDate),
+    queryWellnessRaw(ctx, playerUserId, tz, startDate, endDate),
+    queryHabitCompletionRaw(ctx, playerUserId, tz, startDate, endDate),
+  ]);
 
   return {
     player: {

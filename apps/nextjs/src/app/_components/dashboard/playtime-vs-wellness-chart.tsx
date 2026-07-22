@@ -1,6 +1,5 @@
 "use client";
 
-import type { PlaytimeVsWellnessDay } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
@@ -12,6 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+import type { PlaytimeVsWellnessDay } from "@gamer-health/core";
 
 import { formatDateLabel, formatDuration } from "~/lib/format";
 import { useTRPC } from "~/trpc/react";

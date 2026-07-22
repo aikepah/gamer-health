@@ -22,7 +22,9 @@ export function RosterErrorToast() {
 
   useEffect(() => {
     if (!error) return;
-    toast.error(ERROR_MESSAGES[error] ?? "You don't have access to that player.");
+    toast.error(
+      ERROR_MESSAGES[error] ?? "You don't have access to that player.",
+    );
     router.replace("/coach/roster");
   }, [error, router]);
 

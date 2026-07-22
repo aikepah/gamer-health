@@ -1,6 +1,5 @@
 "use client";
 
-import type { PlaytimeByDay } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
@@ -11,6 +10,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+
+import type { PlaytimeByDay } from "@gamer-health/core";
 
 import {
   formatDateLabel,
@@ -55,7 +56,9 @@ export function WeeklyPlaytimeChart({
   return (
     <ChartCard title="Weekly playtime" subtitle={subtitle}>
       {!hasData ? (
-        <ChartEmptyState message={`No sessions logged in the last ${rangeDays} days. Log a session to see it here.`} />
+        <ChartEmptyState
+          message={`No sessions logged in the last ${rangeDays} days. Log a session to see it here.`}
+        />
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={data} margin={{ top: 4, right: 8 }}>

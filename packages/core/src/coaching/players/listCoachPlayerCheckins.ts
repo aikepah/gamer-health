@@ -1,9 +1,12 @@
 import { z } from "zod/v4";
 
-import type { ServiceCtx } from "../../ctx";
 import type { ListCheckinsResult } from "../../checkins/listCheckins";
+import type { ServiceCtx } from "../../ctx";
 import { assertCoachOf } from "../../authz/assertCoachOf";
-import { listCheckinsFor, listCheckinsInput } from "../../checkins/listCheckins";
+import {
+  listCheckinsFor,
+  listCheckinsInput,
+} from "../../checkins/listCheckins";
 
 export const listCoachPlayerCheckinsInput = listCheckinsInput.extend({
   playerUserId: z.string().min(1),

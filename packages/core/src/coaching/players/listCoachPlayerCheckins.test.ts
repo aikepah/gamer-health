@@ -26,7 +26,11 @@ function makeCtx(config: {
     select,
   } as unknown as ServiceCtx["db"];
 
-  return { ctx: { db, userId: config.userId } as ServiceCtx, findMany, relationshipFindFirst };
+  return {
+    ctx: { db, userId: config.userId } as ServiceCtx,
+    findMany,
+    relationshipFindFirst,
+  };
 }
 
 describe("listCoachPlayerCheckins", () => {
@@ -65,7 +69,10 @@ describe("listCoachPlayerCheckins", () => {
 
     expect(result).toEqual({ items, total: 1 });
     expect(relationshipFindFirst).toHaveBeenCalledTimes(1);
-    const arg = findMany.mock.calls[0]?.[0] as { limit: number; offset: number };
+    const arg = findMany.mock.calls[0]?.[0] as {
+      limit: number;
+      offset: number;
+    };
     expect(arg.limit).toBe(30);
     expect(arg.offset).toBe(0);
   });
