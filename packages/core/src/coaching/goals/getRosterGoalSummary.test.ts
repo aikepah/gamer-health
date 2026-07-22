@@ -12,12 +12,10 @@ function makeCtx(config: {
     completed: string;
   }[];
 }) {
-  const profileFindFirst = vi
-    .fn()
-    .mockResolvedValue({
-      role: config.callerRole ?? "coach",
-      deactivatedAt: null,
-    });
+  const profileFindFirst = vi.fn().mockResolvedValue({
+    role: config.callerRole ?? "coach",
+    deactivatedAt: null,
+  });
 
   const groupBy = vi.fn().mockResolvedValue(config.rows ?? []);
   const where = vi.fn(() => ({ groupBy }));

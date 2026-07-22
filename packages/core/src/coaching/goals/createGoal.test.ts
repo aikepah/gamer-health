@@ -11,12 +11,10 @@ function makeCtx(config: {
   openCount?: number;
   insertedRow?: GoalRow;
 }) {
-  const profileFindFirst = vi
-    .fn()
-    .mockResolvedValue({
-      role: config.callerRole ?? "coach",
-      deactivatedAt: null,
-    });
+  const profileFindFirst = vi.fn().mockResolvedValue({
+    role: config.callerRole ?? "coach",
+    deactivatedAt: null,
+  });
   const relationshipFindFirst = vi.fn().mockResolvedValue(config.relationship);
 
   const selectWhere = vi

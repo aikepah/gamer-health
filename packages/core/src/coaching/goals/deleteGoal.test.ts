@@ -30,12 +30,10 @@ function makeCtx(config: {
   deletedRows?: { id: string }[];
 }) {
   const goalFindFirst = vi.fn().mockResolvedValue(config.goal);
-  const profileFindFirst = vi
-    .fn()
-    .mockResolvedValue({
-      role: config.callerRole ?? "coach",
-      deactivatedAt: null,
-    });
+  const profileFindFirst = vi.fn().mockResolvedValue({
+    role: config.callerRole ?? "coach",
+    deactivatedAt: null,
+  });
   const relationshipFindFirst = vi.fn().mockResolvedValue(config.relationship);
 
   const returning = vi.fn().mockResolvedValue(config.deletedRows ?? []);
