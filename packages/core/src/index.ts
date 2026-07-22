@@ -74,7 +74,11 @@ export { createCheckin, createCheckinInput } from "./checkins/createCheckin";
 export type { CreateCheckinInput } from "./checkins/createCheckin";
 export { getTodayCheckinStatus } from "./checkins/getTodayStatus";
 export type { TodayCheckinStatus } from "./checkins/getTodayStatus";
-export { listCheckins, listCheckinsInput } from "./checkins/listCheckins";
+export {
+  listCheckins,
+  listCheckinsFor,
+  listCheckinsInput,
+} from "./checkins/listCheckins";
 export type {
   ListCheckinsInput,
   ListCheckinsResult,
@@ -88,6 +92,7 @@ export { xpForLevel, levelFromXp, levelProgress } from "./gamification/level";
 export type { LevelProgress } from "./gamification/level";
 export {
   getGamificationSummary,
+  getGamificationSummaryFor,
   getGamificationSummaryInput,
   listAchievements,
   listRecentRewardEvents,
@@ -126,6 +131,7 @@ export {
   aggregateHabitCompletion,
   getHabitCompletionStats,
   getHabitCompletionStatsInput,
+  queryHabitCompletionRaw,
 } from "./dashboard/getHabitCompletionStats";
 export type {
   GetHabitCompletionStatsInput,
@@ -174,6 +180,7 @@ export type { HabitRow, UpsertHabitInput } from "./habits/upsertHabit";
 export { validateHabitConfig } from "./habits/validateHabitConfig";
 export { getOrCreateProfile } from "./profile/getOrCreateProfile";
 export type { ProfileRow } from "./profile/getOrCreateProfile";
+export { getProfileFor } from "./profile/getProfileFor";
 export { updateProfile, updateProfileInput } from "./profile/updateProfile";
 export type { UpdateProfileInput } from "./profile/updateProfile";
 export { deleteSession, deleteSessionInput } from "./sessions/deleteSession";
@@ -190,7 +197,11 @@ export type {
   GetOrCreateGameInput,
   SearchGamesInput,
 } from "./sessions/games";
-export { listSessions, listSessionsInput } from "./sessions/listSessions";
+export {
+  listSessions,
+  listSessionsFor,
+  listSessionsInput,
+} from "./sessions/listSessions";
 export type {
   ListSessionsInput,
   ListSessionsResult,
@@ -355,3 +366,23 @@ export type {
 } from "./coaching/relationships/listCoachRoster";
 export { getMyCoach } from "./coaching/relationships/getMyCoach";
 export type { MyCoachSummary } from "./coaching/relationships/getMyCoach";
+
+// --- Coach player progress tracking (#12) -----------------------------------
+export {
+  getCoachPlayerOverview,
+  getCoachPlayerOverviewInput,
+} from "./coaching/players/getCoachPlayerOverview";
+export type {
+  CoachPlayerOverview,
+  GetCoachPlayerOverviewInput,
+} from "./coaching/players/getCoachPlayerOverview";
+export {
+  listCoachPlayerSessions,
+  listCoachPlayerSessionsInput,
+} from "./coaching/players/listCoachPlayerSessions";
+export type { ListCoachPlayerSessionsInput } from "./coaching/players/listCoachPlayerSessions";
+export {
+  listCoachPlayerCheckins,
+  listCoachPlayerCheckinsInput,
+} from "./coaching/players/listCoachPlayerCheckins";
+export type { ListCoachPlayerCheckinsInput } from "./coaching/players/listCoachPlayerCheckins";

@@ -1,5 +1,6 @@
 "use client";
 
+import type { PlaytimeVsWellnessDay } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bar,
@@ -18,17 +19,31 @@ import { ChartCard, ChartEmptyState, ChartSkeleton } from "./chart-card";
 
 /**
  * Composed chart: bars = playtime minutes (left axis), line = average mood
- * (right axis, 1-5), last 30 days. Visual correlation only — no statistical
- * coefficient. Presentation-only — fetches via `dashboard.playtimeVsWellness`
- * (defaults to 30 days server-side).
+ * (right axis, 1-5). Visual correlation only — no statistical coefficient.
+ * Presentation-only. Self-fetches via `dashboard.playtimeVsWellness`
+ * (defaults to 30 days server-side) unless `data` is passed in — the coach
+ * player-overview page (#12) already has the data from its single authorized
+ * `coaching.players.overview` call and passes it down instead of firing a
+ * second, separately-authorized query.
  */
-export function PlaytimeVsWellnessChart() {
+export function PlaytimeVsWellnessChart({
+  data: overrideData,
+  rangeDays = 30,
+}: {
+  data?: PlaytimeVsWellnessDay[];
+  rangeDays?: number;
+} = {}) {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.dashboard.playtimeVsWellness.queryOptions({}));
+  const query = useQuery({
+    ...trpc.dashboard.playtimeVsWellness.queryOptions({}),
+    enabled: overrideData === undefined,
+  });
+  const data = overrideData ?? query.data;
+  const subtitle = `Last ${rangeDays} days`;
 
   if (!data) {
     return (
-      <ChartCard title="Playtime vs. mood" subtitle="Last 30 days">
+      <ChartCard title="Playtime vs. mood" subtitle={subtitle}>
         <ChartSkeleton height={260} />
       </ChartCard>
     );
@@ -36,17 +51,17 @@ export function PlaytimeVsWellnessChart() {
 
   if (data.length === 0) {
     return (
-      <ChartCard title="Playtime vs. mood" subtitle="Last 30 days">
+      <ChartCard title="Playtime vs. mood" subtitle={subtitle}>
         <ChartEmptyState
           height={260}
-          message="No sessions or check-ins in the last 30 days yet."
+          message={`No sessions or check-ins in the last ${rangeDays} days yet.`}
         />
       </ChartCard>
     );
   }
 
   return (
-    <ChartCard title="Playtime vs. mood" subtitle="Last 30 days">
+    <ChartCard title="Playtime vs. mood" subtitle={subtitle}>
       <ResponsiveContainer width="100%" height={260}>
         <ComposedChart data={data} margin={{ top: 4, right: 8 }}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />

@@ -1,5 +1,6 @@
 "use client";
 
+import type { GamificationSummary } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
 
 import { useTRPC } from "~/trpc/react";
@@ -11,13 +12,25 @@ const STREAK_LABELS: Record<string, string> = {
 };
 
 /**
- * Level, XP progress bar, and current streaks. Presentation-only — fetches
- * its own data via `gamification.summary` so it can be dropped onto any page
- * (home, dashboard) without prop plumbing.
+ * Level, XP progress bar, and current streaks. Presentation-only. Self-fetches
+ * via `gamification.summary` (the caller's own) so it can be dropped onto any
+ * page without prop plumbing, unless `data` is passed in — the coach
+ * player-overview page (#12) already has the PLAYER's summary from its
+ * single authorized `coaching.players.overview` call (`gamification.summary`
+ * only ever returns the caller's own data, so it can't be reused directly
+ * for an arbitrary player).
  */
-export function PlayerStatsCard() {
+export function PlayerStatsCard({
+  data: overrideData,
+}: {
+  data?: GamificationSummary;
+} = {}) {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.gamification.summary.queryOptions());
+  const query = useQuery({
+    ...trpc.gamification.summary.queryOptions(),
+    enabled: overrideData === undefined,
+  });
+  const data = overrideData ?? query.data;
 
   if (!data) {
     return (

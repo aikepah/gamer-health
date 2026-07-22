@@ -1,5 +1,6 @@
 "use client";
 
+import type { WellnessTrendDay } from "@gamer-health/core";
 import { useQuery } from "@tanstack/react-query";
 import {
   CartesianGrid,
@@ -17,17 +18,31 @@ import { useTRPC } from "~/trpc/react";
 import { ChartCard, ChartEmptyState, ChartSkeleton } from "./chart-card";
 
 /**
- * Mood/energy (and sleep quality, if any is present) line chart over the
- * last 14 days, connecting over null gaps. Presentation-only — fetches via
- * `dashboard.wellnessTrend` (defaults to 14 days server-side).
+ * Mood/energy (and sleep quality, if any is present) line chart, connecting
+ * over null gaps. Presentation-only. Self-fetches via
+ * `dashboard.wellnessTrend` (defaults to 14 days server-side) unless `data`
+ * is passed in — the coach player-overview page (#12) already has the data
+ * from its single authorized `coaching.players.overview` call and passes it
+ * down instead of firing a second, separately-authorized query.
  */
-export function WellnessTrendChart() {
+export function WellnessTrendChart({
+  data: overrideData,
+  rangeDays = 14,
+}: {
+  data?: WellnessTrendDay[];
+  rangeDays?: number;
+} = {}) {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.dashboard.wellnessTrend.queryOptions({}));
+  const query = useQuery({
+    ...trpc.dashboard.wellnessTrend.queryOptions({}),
+    enabled: overrideData === undefined,
+  });
+  const data = overrideData ?? query.data;
+  const subtitle = `Last ${rangeDays} days`;
 
   if (!data) {
     return (
-      <ChartCard title="Mood & energy trend" subtitle="Last 14 days">
+      <ChartCard title="Mood & energy trend" subtitle={subtitle}>
         <ChartSkeleton height={240} />
       </ChartCard>
     );
@@ -37,11 +52,11 @@ export function WellnessTrendChart() {
   const hasSleep = data.some((d) => d.avgSleepQuality !== null);
 
   return (
-    <ChartCard title="Mood & energy trend" subtitle="Last 14 days">
+    <ChartCard title="Mood & energy trend" subtitle={subtitle}>
       {!hasData ? (
         <ChartEmptyState
           height={240}
-          message="No check-ins in the last 14 days. Log a check-in to see your trend."
+          message={`No check-ins in the last ${rangeDays} days. Log a check-in to see your trend.`}
         />
       ) : (
         <ResponsiveContainer width="100%" height={240}>

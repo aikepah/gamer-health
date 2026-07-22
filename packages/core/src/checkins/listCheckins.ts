@@ -22,12 +22,17 @@ export interface ListCheckinsResult {
   total: number;
 }
 
-/** Lists the caller's check-ins, newest first. */
-export async function listCheckins(
+/**
+ * Lists `userId`'s check-ins, newest first. Explicit-user inner function —
+ * callers that have already authorized a specific target user (e.g.
+ * coach-scoped reads via `assertCoachOf`) call this directly; `listCheckins`
+ * below is the caller's-own-data wrapper.
+ */
+export async function listCheckinsFor(
   ctx: ServiceCtx,
+  userId: string,
   input: ListCheckinsInput,
 ): Promise<ListCheckinsResult> {
-  const userId = requireUserId(ctx);
   const where = eq(Checkin.userId, userId);
 
   const [items, totalRows] = await Promise.all([
@@ -45,4 +50,12 @@ export async function listCheckins(
     items,
     total: totalRows[0]?.value ?? 0,
   };
+}
+
+/** Lists the caller's check-ins, newest first. */
+export async function listCheckins(
+  ctx: ServiceCtx,
+  input: ListCheckinsInput,
+): Promise<ListCheckinsResult> {
+  return listCheckinsFor(ctx, requireUserId(ctx), input);
 }
