@@ -61,7 +61,10 @@ export function NavLinks({
     ...LINKS,
     ...(isCoach
       ? COACH_LINKS
-      : [...PLAYER_LINKS, ...(hasCoach ? [PLAYER_COACHING_SESSIONS_LINK] : [])]),
+      : [
+          ...PLAYER_LINKS,
+          ...(hasCoach ? [PLAYER_COACHING_SESSIONS_LINK] : []),
+        ]),
     ...(isAdmin ? [ADMIN_LINK] : []),
   ];
 

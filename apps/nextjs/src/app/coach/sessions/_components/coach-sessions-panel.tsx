@@ -81,9 +81,7 @@ export function CoachSessionsPanel() {
           )}
         </h2>
         {proposals.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No pending proposals.
-          </p>
+          <p className="text-muted-foreground text-sm">No pending proposals.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {proposals.map((row) => (

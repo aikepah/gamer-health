@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getSession } from "~/auth/server";
-import { HydrateClient, getServerMyCoach, prefetch, trpc } from "~/trpc/server";
+import { getServerMyCoach, HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { SchedulePanel } from "./_components/schedule-panel";
 
 /**

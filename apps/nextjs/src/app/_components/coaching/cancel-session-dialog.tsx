@@ -95,7 +95,11 @@ export function CancelSessionDialog({
             >
               Never mind
             </Button>
-            <Button type="submit" variant="destructive" disabled={cancel.isPending}>
+            <Button
+              type="submit"
+              variant="destructive"
+              disabled={cancel.isPending}
+            >
               {cancel.isPending ? "Cancelling…" : "Cancel session"}
             </Button>
           </DialogFooter>

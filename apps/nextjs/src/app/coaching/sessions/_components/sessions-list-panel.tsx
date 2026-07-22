@@ -45,9 +45,7 @@ export function SessionsListPanel() {
 
       <TabsContent value="upcoming" className="mt-6">
         {upcoming.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            No upcoming sessions.
-          </p>
+          <p className="text-muted-foreground text-sm">No upcoming sessions.</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {upcoming.map((row) => (

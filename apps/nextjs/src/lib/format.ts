@@ -58,7 +58,9 @@ export function zonedWallTimeToUtc(
   const minutes = minuteOfDay % 60;
   const naiveUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
   const asIfLocal = new Date(naiveUtc.toLocaleString("en-US", { timeZone }));
-  const asIfUtc = new Date(naiveUtc.toLocaleString("en-US", { timeZone: "UTC" }));
+  const asIfUtc = new Date(
+    naiveUtc.toLocaleString("en-US", { timeZone: "UTC" }),
+  );
   const offsetMs = asIfUtc.getTime() - asIfLocal.getTime();
   return new Date(naiveUtc.getTime() + offsetMs);
 }

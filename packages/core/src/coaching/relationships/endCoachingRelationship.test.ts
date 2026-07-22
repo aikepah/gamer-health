@@ -176,7 +176,11 @@ describe("endCoachingRelationship", () => {
   it("does NOT cancel sessions when the conditional update loses the race", async () => {
     const { ctx, sessionSet } = makeCtx({
       callerId: "player_1",
-      row: { playerUserId: "player_1", coachUserId: "coach_1", status: "active" },
+      row: {
+        playerUserId: "player_1",
+        coachUserId: "coach_1",
+        status: "active",
+      },
       updatedRows: [],
     });
 
@@ -189,7 +193,11 @@ describe("endCoachingRelationship", () => {
   it("cancels this relationship's future proposed/confirmed sessions in the same transaction (#15)", async () => {
     const { ctx, update, sessionSet, sessionWhere } = makeCtx({
       callerId: "coach_1",
-      row: { playerUserId: "player_1", coachUserId: "coach_1", status: "active" },
+      row: {
+        playerUserId: "player_1",
+        coachUserId: "coach_1",
+        status: "active",
+      },
     });
 
     await endCoachingRelationship(ctx, {

@@ -26,7 +26,10 @@ const ROW: SessionRow = {
 
 function makeCtx(config: {
   callerId?: string;
-  authzProfile?: { role: "player" | "coach" | "admin"; deactivatedAt: Date | null };
+  authzProfile?: {
+    role: "player" | "coach" | "admin";
+    deactivatedAt: Date | null;
+  };
   row?: SessionRow | undefined;
   overlapping?: { id: string } | undefined;
   /** Rows returned by the conditional confirm UPDATE; [] simulates losing the race. */
@@ -34,15 +37,18 @@ function makeCtx(config: {
 }) {
   const profileFindFirst = vi
     .fn()
-    .mockResolvedValue(config.authzProfile ?? { role: "coach", deactivatedAt: null });
+    .mockResolvedValue(
+      config.authzProfile ?? { role: "coach", deactivatedAt: null },
+    );
   const outerFindFirst = vi
     .fn()
     .mockResolvedValue("row" in config ? config.row : ROW);
 
   const txFindFirst = vi.fn().mockResolvedValue(config.overlapping);
 
-  const confirmedRows =
-    config.confirmedRows ?? [{ ...ROW, status: "confirmed" }];
+  const confirmedRows = config.confirmedRows ?? [
+    { ...ROW, status: "confirmed" },
+  ];
 
   let updateCallIndex = 0;
   const confirmWhere = vi.fn(() => ({
@@ -57,9 +63,13 @@ function makeCtx(config: {
     return updateCallIndex === 1 ? { set: confirmSet } : { set: cancelSet };
   });
 
+  // `execute` backs the per-coach advisory lock the transaction takes before
+  // the overlap check.
+  const execute = vi.fn().mockResolvedValue(undefined);
   const tx = {
     query: { CoachingSession: { findFirst: txFindFirst } },
     update,
+    execute,
   };
   const transaction = vi.fn((cb: (tx: unknown) => unknown) => cb(tx));
 
@@ -76,12 +86,16 @@ function makeCtx(config: {
     confirmSet,
     cancelSet,
     cancelWhere,
+    execute,
+    txFindFirst,
   };
 }
 
 describe("confirmCoachingSession", () => {
   it("throws CoreError(FORBIDDEN) for a non-coach", async () => {
-    const { ctx } = makeCtx({ authzProfile: { role: "player", deactivatedAt: null } });
+    const { ctx } = makeCtx({
+      authzProfile: { role: "player", deactivatedAt: null },
+    });
     await expect(
       confirmCoachingSession(ctx, { sessionId: "session_1" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
@@ -147,7 +161,9 @@ describe("confirmCoachingSession", () => {
   it("confirms the session and auto-cancels the coach's other overlapping proposals", async () => {
     const { ctx, confirmSet, cancelSet, cancelWhere } = makeCtx({});
 
-    const result = await confirmCoachingSession(ctx, { sessionId: "session_1" });
+    const result = await confirmCoachingSession(ctx, {
+      sessionId: "session_1",
+    });
 
     expect(result.status).toBe("confirmed");
     expect(confirmSet).toHaveBeenCalledWith(
@@ -161,5 +177,20 @@ describe("confirmCoachingSession", () => {
       }),
     );
     expect(cancelWhere).toHaveBeenCalled();
+  });
+
+  it("takes the per-coach advisory lock BEFORE reading for overlaps", async () => {
+    // The lock is what makes the overlap check atomic: under READ COMMITTED
+    // two concurrent confirms of overlapping proposals would otherwise both
+    // see "no overlap" and both succeed, double-booking the coach. Taken
+    // after the read, it would serialize nothing.
+    const { ctx, execute, txFindFirst } = makeCtx({});
+
+    await confirmCoachingSession(ctx, { sessionId: "session_1" });
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    const lockOrder = execute.mock.invocationCallOrder[0] ?? Infinity;
+    const overlapReadOrder = txFindFirst.mock.invocationCallOrder[0] ?? 0;
+    expect(lockOrder).toBeLessThan(overlapReadOrder);
   });
 });

@@ -22,14 +22,21 @@ const ROW: SessionRow = {
 
 function makeCtx(config: {
   callerId?: string;
-  authzProfile?: { role: "player" | "coach" | "admin"; deactivatedAt: Date | null };
+  authzProfile?: {
+    role: "player" | "coach" | "admin";
+    deactivatedAt: Date | null;
+  };
   row?: SessionRow | undefined;
   updatedRows?: { id: string }[];
 }) {
   const profileFindFirst = vi
     .fn()
-    .mockResolvedValue(config.authzProfile ?? { role: "coach", deactivatedAt: null });
-  const findFirst = vi.fn().mockResolvedValue("row" in config ? config.row : ROW);
+    .mockResolvedValue(
+      config.authzProfile ?? { role: "coach", deactivatedAt: null },
+    );
+  const findFirst = vi
+    .fn()
+    .mockResolvedValue("row" in config ? config.row : ROW);
 
   const returning = vi
     .fn()
@@ -56,7 +63,9 @@ function makeCtx(config: {
 
 describe("markSessionCompleted", () => {
   it("throws FORBIDDEN for a non-coach", async () => {
-    const { ctx } = makeCtx({ authzProfile: { role: "player", deactivatedAt: null } });
+    const { ctx } = makeCtx({
+      authzProfile: { role: "player", deactivatedAt: null },
+    });
     await expect(
       markSessionCompleted(ctx, { sessionId: "session_1" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });

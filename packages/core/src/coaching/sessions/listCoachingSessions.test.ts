@@ -3,10 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ServiceCtx } from "../../ctx";
 import { listCoachingSessions } from "./listCoachingSessions";
 
-function makeCtx(config: {
-  callerId?: string;
-  rows?: unknown[];
-}) {
+function makeCtx(config: { callerId?: string; rows?: unknown[] }) {
   const profileFindFirst = vi
     .fn()
     .mockResolvedValue({ role: "player", deactivatedAt: null });
@@ -46,7 +43,10 @@ describe("listCoachingSessions", () => {
     });
 
     expect(result).toHaveLength(1);
-    expect(result[0]?.player).toEqual({ userId: "player_1", name: "Riley Chen" });
+    expect(result[0]?.player).toEqual({
+      userId: "player_1",
+      name: "Riley Chen",
+    });
     expect(result[0]?.coach).toEqual({ userId: "coach_1", name: "Demo Coach" });
   });
 

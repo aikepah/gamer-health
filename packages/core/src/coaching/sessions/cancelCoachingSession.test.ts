@@ -26,7 +26,9 @@ function makeCtx(config: {
   const profileFindFirst = vi
     .fn()
     .mockResolvedValue({ role: "player", deactivatedAt: null });
-  const findFirst = vi.fn().mockResolvedValue("row" in config ? config.row : ROW);
+  const findFirst = vi
+    .fn()
+    .mockResolvedValue("row" in config ? config.row : ROW);
 
   const returning = vi
     .fn()

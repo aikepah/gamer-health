@@ -21,7 +21,12 @@ function makeCtx(config: {
   callerId?: string;
   rel?: RelationshipRow | undefined;
   coachTimezone?: string | null;
-  blocks?: { id: string; weekday: number; startMinute: number; endMinute: number }[];
+  blocks?: {
+    id: string;
+    weekday: number;
+    startMinute: number;
+    endMinute: number;
+  }[];
   coachName?: string;
   busy?: { startsAt: Date; endsAt: Date }[];
 }) {
@@ -29,7 +34,8 @@ function makeCtx(config: {
   const coachProfile = {
     role: "coach",
     deactivatedAt: null,
-    timezone: "coachTimezone" in config ? config.coachTimezone : "America/Chicago",
+    timezone:
+      "coachTimezone" in config ? config.coachTimezone : "America/Chicago",
   };
 
   const profileFindFirst = vi
@@ -81,7 +87,10 @@ describe("getSchedulingContext", () => {
 
   it("returns the coach's availability, timezone, and busy confirmed sessions", async () => {
     const busy = [
-      { startsAt: new Date("2026-08-01T22:00:00Z"), endsAt: new Date("2026-08-01T23:00:00Z") },
+      {
+        startsAt: new Date("2026-08-01T22:00:00Z"),
+        endsAt: new Date("2026-08-01T23:00:00Z"),
+      },
     ];
     const { ctx } = makeCtx({
       blocks: [{ id: "b1", weekday: 3, startMinute: 1020, endMinute: 1200 }],

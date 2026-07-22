@@ -9,7 +9,17 @@ import { CoreError } from "../../lib/errors";
 
 export const cancelCoachingSessionInput = z.object({
   sessionId: z.uuid(),
-  reason: z.string().trim().max(500).optional(),
+  // `.optional()` stays OUTERMOST of `.transform()` so the key is truly
+  // omittable rather than required-but-undefined, and "" (a blank textarea,
+  // or whitespace that trims to "") normalizes to undefined here instead of
+  // reaching the DB as an empty string alongside null. Same boundary rule as
+  // `proposeCoachingSession`'s `note` and `updateCoachProfile`'s `bio`.
+  reason: z
+    .string()
+    .trim()
+    .max(500)
+    .transform((value) => (value === "" ? undefined : value))
+    .optional(),
 });
 export type CancelCoachingSessionInput = z.infer<
   typeof cancelCoachingSessionInput
@@ -38,10 +48,7 @@ export async function cancelCoachingSession(
     throw new CoreError("NOT_FOUND", "Session not found");
   }
   if (row.status !== "proposed" && row.status !== "confirmed") {
-    throw new CoreError(
-      "CONFLICT",
-      "This session can no longer be cancelled",
-    );
+    throw new CoreError("CONFLICT", "This session can no longer be cancelled");
   }
 
   // Conditional on id + still proposed/confirmed: the read above isn't
@@ -63,9 +70,6 @@ export async function cancelCoachingSession(
     )
     .returning({ id: CoachingSession.id });
   if (updated.length === 0) {
-    throw new CoreError(
-      "CONFLICT",
-      "This session can no longer be cancelled",
-    );
+    throw new CoreError("CONFLICT", "This session can no longer be cancelled");
   }
 }

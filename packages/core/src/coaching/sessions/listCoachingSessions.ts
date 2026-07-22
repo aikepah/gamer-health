@@ -4,8 +4,8 @@ import { and, asc, desc, eq, gte, inArray, lt, or } from "@gamer-health/db";
 import { CoachingSession } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
-import { requireActiveUser } from "../../authz/requireRole";
 import type { CoachingSessionRow } from "./proposeCoachingSession";
+import { requireActiveUser } from "../../authz/requireRole";
 
 export const listCoachingSessionsInput = z.object({
   scope: z.enum(["upcoming", "past"]).default("upcoming"),

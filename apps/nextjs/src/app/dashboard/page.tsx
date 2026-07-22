@@ -1,18 +1,13 @@
 import { redirect } from "next/navigation";
 
 import { getSession } from "~/auth/server";
-import {
-  getServerMyCoach,
-  HydrateClient,
-  prefetch,
-  trpc,
-} from "~/trpc/server";
+import { getServerMyCoach, HydrateClient, prefetch, trpc } from "~/trpc/server";
+import { MyCoachCard } from "../_components/coaching/my-coach-card";
+import { UpcomingSessionCard } from "../_components/coaching/upcoming-session-card";
 import { HabitCompletionCard } from "../_components/dashboard/habit-completion-card";
 import { PlaytimeVsWellnessChart } from "../_components/dashboard/playtime-vs-wellness-chart";
 import { WeeklyPlaytimeChart } from "../_components/dashboard/weekly-playtime-chart";
 import { WellnessTrendChart } from "../_components/dashboard/wellness-trend-chart";
-import { MyCoachCard } from "../_components/coaching/my-coach-card";
-import { UpcomingSessionCard } from "../_components/coaching/upcoming-session-card";
 import { AchievementsList } from "../_components/gamification/achievements-list";
 import { PlayerStatsCard } from "../_components/gamification/player-stats-card";
 

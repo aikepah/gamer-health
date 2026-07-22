@@ -40,7 +40,9 @@ function buildSlots(
     // Pure calendar-day arithmetic via a UTC-anchored Date — no timezone
     // conversion happening here, just Y/M/D + offset (Date.UTC normalizes
     // month/day overflow correctly).
-    const calendarDay = new Date(Date.UTC(base.year, base.month - 1, base.day + offset));
+    const calendarDay = new Date(
+      Date.UTC(base.year, base.month - 1, base.day + offset),
+    );
     const weekday = calendarDay.getUTCDay();
     const year = calendarDay.getUTCFullYear();
     const month = calendarDay.getUTCMonth() + 1;
@@ -54,7 +56,13 @@ function buildSlots(
         minute + durationMinutes <= block.endMinute;
         minute += SLOT_STEP_MINUTES
       ) {
-        const startsAt = zonedWallTimeToUtc(year, month, day, minute, coachTimezone);
+        const startsAt = zonedWallTimeToUtc(
+          year,
+          month,
+          day,
+          minute,
+          coachTimezone,
+        );
         if (startsAt.getTime() <= now.getTime()) continue;
         const endsAt = zonedWallTimeToUtc(
           year,
@@ -129,11 +137,12 @@ export function SchedulePanel() {
     <div className="flex flex-col gap-6">
       <div>
         <p className="text-sm">
-          Scheduling with <span className="font-medium">{context.coach.name}</span>
+          Scheduling with{" "}
+          <span className="font-medium">{context.coach.name}</span>
         </p>
         <p className="text-muted-foreground text-xs">
-          Their availability is in {context.coach.timezone}; times below show
-          in your own timezone.
+          Their availability is in {context.coach.timezone}; times below show in
+          your own timezone.
         </p>
       </div>
 
@@ -144,7 +153,9 @@ export function SchedulePanel() {
           value={duration}
           onChange={(event) => {
             setSelected(null);
-            setDuration(Number(event.target.value) as (typeof DURATIONS)[number]);
+            setDuration(
+              Number(event.target.value) as (typeof DURATIONS)[number],
+            );
           }}
           className="border-input w-40 rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none"
         >

@@ -1,10 +1,7 @@
 import { z } from "zod/v4";
 
 import { and, eq, gt, inArray } from "@gamer-health/db";
-import {
-  CoachingRelationship,
-  CoachingSession,
-} from "@gamer-health/db/schema";
+import { CoachingRelationship, CoachingSession } from "@gamer-health/db/schema";
 
 import type { ServiceCtx, TxDb } from "../../ctx";
 import { requireActiveUser } from "../../authz/requireRole";

@@ -1,12 +1,19 @@
 import { z } from "zod/v4";
 
-import { and, eq, gt, lt, ne } from "@gamer-health/db";
+import { and, eq, gt, lt, ne, sql } from "@gamer-health/db";
 import { CoachingSession } from "@gamer-health/db/schema";
 
 import type { ServiceCtx, TxDb } from "../../ctx";
+import type { CoachingSessionRow } from "./proposeCoachingSession";
 import { requireRole } from "../../authz/requireRole";
 import { CoreError } from "../../lib/errors";
-import type { CoachingSessionRow } from "./proposeCoachingSession";
+
+/**
+ * Advisory-lock namespace for coach-schedule mutations. Advisory locks share
+ * one global 64-bit space, so the two-int form namespaces this feature's
+ * locks away from any other subsystem that starts using them.
+ */
+const COACH_SCHEDULE_LOCK_NAMESPACE = 4712;
 
 export const confirmCoachingSessionInput = z.object({ sessionId: z.uuid() });
 export type ConfirmCoachingSessionInput = z.infer<
@@ -46,6 +53,23 @@ export async function confirmCoachingSession(
   }
 
   return ctx.db.transaction(async (tx: TxDb) => {
+    // Serialize all confirms for THIS coach for the life of the transaction.
+    //
+    // Without it the overlap check below is a plain SELECT under READ
+    // COMMITTED, and the conditional UPDATE only guards the row's own
+    // status — so two concurrent confirms of two different overlapping
+    // proposals both see "no confirmed overlap", both flip their own row,
+    // and the coach ends up double-booked. Unlike the one-active-coach
+    // invariant, there's no unique index to catch it: excluding overlapping
+    // ranges needs a btree_gist EXCLUDE constraint, which drizzle-kit push
+    // can't express (see the note at schema.ts `coaching_session`).
+    //
+    // The lock is keyed on the coach, so confirms for different coaches
+    // never contend, and it releases automatically at commit or rollback.
+    await tx.execute(
+      sql`SELECT pg_advisory_xact_lock(${COACH_SCHEDULE_LOCK_NAMESPACE}, hashtext(${authz.userId}))`,
+    );
+
     const overlapping = await tx.query.CoachingSession.findFirst({
       where: and(
         eq(CoachingSession.coachUserId, authz.userId),

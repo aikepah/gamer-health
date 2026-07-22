@@ -2,8 +2,8 @@ import { and, eq, gt, lt } from "@gamer-health/db";
 import { CoachingSession, user } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
-import { CoreError } from "../../lib/errors";
 import type { AvailabilityBlock } from "../profile/getOrCreateCoachProfile";
+import { CoreError } from "../../lib/errors";
 import { getCoachAvailability } from "../profile/getCoachAvailability";
 import { requireMyCoachRelationship } from "../relationships/getActiveRelationship";
 
