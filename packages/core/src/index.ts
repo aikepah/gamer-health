@@ -355,3 +355,47 @@ export type {
 } from "./coaching/relationships/listCoachRoster";
 export { getMyCoach } from "./coaching/relationships/getMyCoach";
 export type { MyCoachSummary } from "./coaching/relationships/getMyCoach";
+
+// --- Coaching session scheduling (#15) ---------------------------------------
+export {
+  isWithinAvailability,
+  toLocalSlot,
+} from "./coaching/sessions/availability";
+export type { LocalSlot } from "./coaching/sessions/availability";
+export {
+  MAX_OUTSTANDING_PROPOSALS,
+  MAX_SCHEDULING_HORIZON_DAYS,
+  MAX_SESSION_MINUTES,
+  MIN_SESSION_MINUTES,
+  proposeCoachingSession,
+  proposeCoachingSessionInput,
+} from "./coaching/sessions/proposeCoachingSession";
+export type {
+  CoachingSessionRow,
+  ProposeCoachingSessionInput,
+} from "./coaching/sessions/proposeCoachingSession";
+export {
+  confirmCoachingSession,
+  confirmCoachingSessionInput,
+} from "./coaching/sessions/confirmCoachingSession";
+export type { ConfirmCoachingSessionInput } from "./coaching/sessions/confirmCoachingSession";
+export {
+  cancelCoachingSession,
+  cancelCoachingSessionInput,
+} from "./coaching/sessions/cancelCoachingSession";
+export type { CancelCoachingSessionInput } from "./coaching/sessions/cancelCoachingSession";
+export {
+  markSessionCompleted,
+  markSessionCompletedInput,
+} from "./coaching/sessions/markSessionCompleted";
+export type { MarkSessionCompletedInput } from "./coaching/sessions/markSessionCompleted";
+export {
+  listCoachingSessions,
+  listCoachingSessionsInput,
+} from "./coaching/sessions/listCoachingSessions";
+export type {
+  CoachingSessionItem,
+  ListCoachingSessionsInput,
+} from "./coaching/sessions/listCoachingSessions";
+export { getSchedulingContext } from "./coaching/sessions/getSchedulingContext";
+export type { SchedulingContext } from "./coaching/sessions/getSchedulingContext";

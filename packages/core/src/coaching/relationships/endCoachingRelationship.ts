@@ -1,7 +1,10 @@
 import { z } from "zod/v4";
 
-import { and, eq } from "@gamer-health/db";
-import { CoachingRelationship } from "@gamer-health/db/schema";
+import { and, eq, gt, inArray } from "@gamer-health/db";
+import {
+  CoachingRelationship,
+  CoachingSession,
+} from "@gamer-health/db/schema";
 
 import type { ServiceCtx, TxDb } from "../../ctx";
 import { requireActiveUser } from "../../authz/requireRole";
@@ -25,9 +28,7 @@ export type EndCoachingRelationshipInput = z.infer<
  * Rows are never deleted or reassigned: goals (#13) and coach-assigned
  * habits (#14) survive with their provenance intact; only future
  * `proposed`/`confirmed` coaching sessions (#15) are cancelled in the same
- * transaction, since a session with no relationship is meaningless. #15
- * implements that cancellation — until it lands, this transaction has
- * nothing else to do.
+ * transaction, since a session with no relationship is meaningless.
  */
 export async function endCoachingRelationship(
   ctx: ServiceCtx,
@@ -77,7 +78,25 @@ export async function endCoachingRelationship(
       );
     }
 
-    // #15 adds: cancel this relationship's future proposed/confirmed
-    // coaching sessions here, in the same transaction.
+    // #15: a session with no relationship is meaningless, so cancel this
+    // relationship's future proposed/confirmed sessions in the same
+    // transaction. Past sessions (including a past-but-unconfirmed slot)
+    // are left alone — there's nothing to "cancel" about something already
+    // over, and completed sessions are untouched history.
+    await tx
+      .update(CoachingSession)
+      .set({
+        status: "cancelled",
+        cancelledAt: new Date(),
+        cancelledByUserId: authz.userId,
+        cancelReason: "Coaching relationship ended",
+      })
+      .where(
+        and(
+          eq(CoachingSession.relationshipId, input.relationshipId),
+          inArray(CoachingSession.status, ["proposed", "confirmed"]),
+          gt(CoachingSession.startsAt, new Date()),
+        ),
+      );
   });
 }
