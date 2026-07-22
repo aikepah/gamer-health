@@ -143,9 +143,7 @@ export function AssignHabitDialog({
 
           {selected?.triggerType === "session_interval" && (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="assign-habit-interval">
-                Interval (minutes)
-              </Label>
+              <Label htmlFor="assign-habit-interval">Interval (minutes)</Label>
               <Input
                 id="assign-habit-interval"
                 type="number"
@@ -184,9 +182,7 @@ export function AssignHabitDialog({
                 />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="assign-habit-lead">
-                  Lead time (minutes)
-                </Label>
+                <Label htmlFor="assign-habit-lead">Lead time (minutes)</Label>
                 <Input
                   id="assign-habit-lead"
                   type="number"

@@ -28,12 +28,21 @@ export async function listAssignableHabitDefinitions(
   const coach = await requireRole(ctx, ["coach"]);
 
   return ctx.db.query.HabitDefinition.findMany({
-    where: and(
-      isNull(HabitDefinition.archivedAt),
-      or(
-        eq(HabitDefinition.isDefault, true),
-        eq(HabitDefinition.createdByUserId, coach.userId),
-      ),
-    ),
+    where: assignableDefinitionWhere(coach.userId),
   });
+}
+
+/**
+ * The single definition of "assignable by this coach", shared by the list
+ * above and `assignHabitToPlayer`'s single-row lookup so the two can't drift
+ * apart — same reason `publishedCoachWhere` exists for discoverability.
+ */
+export function assignableDefinitionWhere(coachUserId: string) {
+  return and(
+    isNull(HabitDefinition.archivedAt),
+    or(
+      eq(HabitDefinition.isDefault, true),
+      eq(HabitDefinition.createdByUserId, coachUserId),
+    ),
+  );
 }

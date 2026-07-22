@@ -15,7 +15,9 @@ export default async function CoachPlayerDetailPage({
 }) {
   const { playerUserId } = await params;
 
-  prefetch(trpc.coaching.relationships.roster.queryOptions({ status: "active" }));
+  prefetch(
+    trpc.coaching.relationships.roster.queryOptions({ status: "active" }),
+  );
   prefetch(
     trpc.coaching.assignedHabits.listPlayerHabits.queryOptions({
       playerUserId,

@@ -152,9 +152,7 @@ export function CoachHabitDefinitionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {isEdit ? "Edit habit" : "New habit"}
-          </DialogTitle>
+          <DialogTitle>{isEdit ? "Edit habit" : "New habit"}</DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Edits apply to future prompts only."

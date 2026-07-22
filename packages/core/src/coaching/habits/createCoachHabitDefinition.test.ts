@@ -19,26 +19,24 @@ function makeCtx(options: {
   const selectFrom = vi.fn().mockReturnValue({ where: selectWhere });
   const select = vi.fn().mockReturnValue({ from: selectFrom });
 
-  const returning = vi
-    .fn()
-    .mockResolvedValue(
-      options.returning ?? [
-        {
-          id: "def_1",
-          slug: null,
-          title: "Protein with lunch",
-          description: "Eat protein",
-          promptText: "Eat protein",
-          triggerType: "daily_schedule",
-          defaultConfig: { timeOfDay: "12:30" },
-          isDefault: false,
-          createdByUserId: "coach_1",
-          archivedAt: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ],
-    );
+  const returning = vi.fn().mockResolvedValue(
+    options.returning ?? [
+      {
+        id: "def_1",
+        slug: null,
+        title: "Protein with lunch",
+        description: "Eat protein",
+        promptText: "Eat protein",
+        triggerType: "daily_schedule",
+        defaultConfig: { timeOfDay: "12:30" },
+        isDefault: false,
+        createdByUserId: "coach_1",
+        archivedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ],
+  );
   const values = vi.fn().mockReturnValue({ returning });
   const insert = vi.fn().mockReturnValue({ values });
 

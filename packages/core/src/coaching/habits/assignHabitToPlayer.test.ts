@@ -50,10 +50,15 @@ function makeCtx(config: {
     role: config.coachRole ?? "coach",
     deactivatedAt: null,
   });
-  const relationshipFindFirst = vi
-    .fn()
-    .mockResolvedValue(config.relationship);
+  const relationshipFindFirst = vi.fn().mockResolvedValue(config.relationship);
   const defFindMany = vi.fn().mockResolvedValue(config.defs ?? [HYDRATE_DEF]);
+  // The service now does one targeted lookup (id + the shared assignable
+  // predicate) instead of loading the whole catalog and `.find()`ing in
+  // memory, so `defs` models the assignable set: `[]` means the requested
+  // definition isn't assignable and the lookup finds nothing.
+  const defFindFirst = vi
+    .fn()
+    .mockResolvedValue(config.defs ? config.defs[0] : HYDRATE_DEF);
 
   const returning = vi
     .fn()
@@ -66,7 +71,7 @@ function makeCtx(config: {
     query: {
       Profile: { findFirst: profileFindFirst },
       CoachingRelationship: { findFirst: relationshipFindFirst },
-      HabitDefinition: { findMany: defFindMany },
+      HabitDefinition: { findMany: defFindMany, findFirst: defFindFirst },
     },
     insert,
   } as unknown as ServiceCtx["db"];

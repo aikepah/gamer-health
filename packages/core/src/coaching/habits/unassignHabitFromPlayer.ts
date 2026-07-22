@@ -41,7 +41,18 @@ export async function unassignHabitFromPlayer(
     throw new CoreError("NOT_FOUND", "Habit not found");
   }
 
-  await assertCoachOf(ctx, habit.userId);
+  // A habit belonging to a non-roster player is reported as NOT_FOUND, the
+  // same as an id that doesn't exist — otherwise the two responses let a
+  // coach probe which habit ids are real. Same convention as
+  // `getPublicCoachProfile` and `withdrawApplication`.
+  try {
+    await assertCoachOf(ctx, habit.userId);
+  } catch (err) {
+    if (err instanceof CoreError && err.code === "FORBIDDEN") {
+      throw new CoreError("NOT_FOUND", "Habit not found");
+    }
+    throw err;
+  }
   const coachUserId = requireUserId(ctx);
 
   if (habit.assignedByUserId !== coachUserId) {
@@ -54,9 +65,7 @@ export async function unassignHabitFromPlayer(
       assignedByUserId: null,
       ...(habit.definition.isDefault ? {} : { enabled: false }),
     })
-    .where(
-      and(eq(Habit.id, habit.id), eq(Habit.assignedByUserId, coachUserId)),
-    )
+    .where(and(eq(Habit.id, habit.id), eq(Habit.assignedByUserId, coachUserId)))
     .returning({ id: Habit.id });
   if (!updated) {
     throw new CoreError("CONFLICT", "This habit wasn't assigned by you");

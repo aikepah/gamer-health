@@ -45,9 +45,7 @@ function makeCtx(config: {
     deactivatedAt: null,
     timezone: "America/Chicago",
   });
-  const relationshipFindFirst = vi
-    .fn()
-    .mockResolvedValue(config.relationship);
+  const relationshipFindFirst = vi.fn().mockResolvedValue(config.relationship);
   const habitFindMany = vi.fn().mockResolvedValue(config.habits ?? []);
   const select = vi.fn(() => makeChain(config.completionRows ?? []));
 
@@ -183,11 +181,20 @@ describe("listPlayerHabitsForCoach", () => {
           assignedByUserId: "coach_1",
           enabled: true,
           config: {},
-          definition: { title: "Hydrate", triggerType: "session_interval", isDefault: true },
+          definition: {
+            title: "Hydrate",
+            triggerType: "session_interval",
+            isDefault: true,
+          },
         },
       ],
       completionRows: [
-        { habitId: "habit_1", definitionId: "def_1", status: "done", count: "4" },
+        {
+          habitId: "habit_1",
+          definitionId: "def_1",
+          status: "done",
+          count: "4",
+        },
         {
           habitId: "habit_1",
           definitionId: "def_1",
@@ -212,7 +219,11 @@ describe("listPlayerHabitsForCoach", () => {
           assignedByUserId: null,
           enabled: false,
           config: {},
-          definition: { title: "Hydrate", triggerType: "session_interval", isDefault: true },
+          definition: {
+            title: "Hydrate",
+            triggerType: "session_interval",
+            isDefault: true,
+          },
         },
       ],
       completionRows: [],

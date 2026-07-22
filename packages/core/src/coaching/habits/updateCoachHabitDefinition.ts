@@ -63,7 +63,8 @@ export async function updateCoachHabitDefinition(
   if (input.title !== undefined) set.title = input.title;
   if (input.description !== undefined) set.description = input.description;
   if (input.promptText !== undefined) set.promptText = input.promptText;
-  if (input.defaultConfig !== undefined) set.defaultConfig = input.defaultConfig;
+  if (input.defaultConfig !== undefined)
+    set.defaultConfig = input.defaultConfig;
 
   if (Object.keys(set).length === 0) {
     return existing;

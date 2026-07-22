@@ -1,14 +1,19 @@
 import { z } from "zod/v4";
 
 import type { HabitConfig } from "@gamer-health/db/schema";
-import { Habit, HabitConfigSchema } from "@gamer-health/db/schema";
+import { and, eq } from "@gamer-health/db";
+import {
+  Habit,
+  HabitConfigSchema,
+  HabitDefinition,
+} from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../../ctx";
 import { assertCoachOf } from "../../authz/assertCoachOf";
 import { validateHabitConfig } from "../../habits/validateHabitConfig";
 import { requireUserId } from "../../lib/auth";
 import { CoreError } from "../../lib/errors";
-import { listAssignableHabitDefinitions } from "./listAssignableHabitDefinitions";
+import { assignableDefinitionWhere } from "./listAssignableHabitDefinitions";
 
 export const assignHabitToPlayerInput = z.object({
   playerUserId: z.string().min(1),
@@ -34,8 +39,15 @@ export async function assignHabitToPlayer(
   await assertCoachOf(ctx, input.playerUserId);
   const coachUserId = requireUserId(ctx);
 
-  const assignable = await listAssignableHabitDefinitions(ctx);
-  const definition = assignable.find((d) => d.id === input.definitionId);
+  // Single indexed lookup rather than loading the coach's whole assignable
+  // catalog to `.find()` one row in memory. Shares `assignableDefinitionWhere`
+  // with the list endpoint so visibility rules can't drift between them.
+  const definition = await ctx.db.query.HabitDefinition.findFirst({
+    where: and(
+      eq(HabitDefinition.id, input.definitionId),
+      assignableDefinitionWhere(coachUserId),
+    ),
+  });
   if (!definition) {
     throw new CoreError("NOT_FOUND", "Habit definition not found");
   }

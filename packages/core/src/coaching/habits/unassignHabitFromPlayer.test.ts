@@ -30,9 +30,7 @@ function makeCtx(config: {
     role: config.coachRole ?? "coach",
     deactivatedAt: null,
   });
-  const relationshipFindFirst = vi
-    .fn()
-    .mockResolvedValue(config.relationship);
+  const relationshipFindFirst = vi.fn().mockResolvedValue(config.relationship);
   const habitFindFirst = vi.fn().mockResolvedValue(config.habit);
 
   const updateSet = vi.fn();
@@ -66,11 +64,15 @@ describe("unassignHabitFromPlayer", () => {
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 
-  it("throws CoreError(FORBIDDEN) when the caller has no active relationship to the habit's player", async () => {
+  it("reports NOT_FOUND, not FORBIDDEN, when the habit's player isn't on the caller's roster", async () => {
+    // Deliberately indistinguishable from the "doesn't exist" case above:
+    // returning FORBIDDEN here would let a coach probe which habit ids are
+    // real. Same convention as `getPublicCoachProfile` and
+    // `withdrawApplication`.
     const { ctx } = makeCtx({ habit: makeHabit(), relationship: undefined });
     await expect(
       unassignHabitFromPlayer(ctx, { habitId: "habit_1" }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "Habit not found" });
   });
 
   it("throws CoreError(CONFLICT) when the habit wasn't assigned by the caller", async () => {
