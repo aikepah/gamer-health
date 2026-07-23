@@ -1,3 +1,19 @@
+/**
+ * Public surface of the domain layer.
+ *
+ * DELIBERATELY NOT EXPORTED: the explicit-user reader variants
+ * (`listCheckinsFor`, `listSessionsFor`, `getGamificationSummaryFor`,
+ * `queryHabitCompletionRaw`, `getProfileFor`). They take an arbitrary
+ * `userId` and perform NO authorization — they exist so an already-
+ * authorized caller (a coach-scoped service that ran `assertCoachOf` first)
+ * can read a specific target user without re-authorizing per query.
+ *
+ * Everything exported here is reachable by the post-MVP AI assistant as a
+ * Claude tool, so an unauthenticated whole-user reader on this surface would
+ * let the assistant read any user's data by passing a different id. Import
+ * them by relative path from inside `packages/core` only, immediately after
+ * an authorization check.
+ */
 export type { ServiceCtx } from "./ctx";
 export { ADMIN_AUDIT_ACTIONS, recordAdminAudit } from "./admin/audit";
 export type { AdminAuditAction, RecordAdminAuditEntry } from "./admin/audit";
@@ -355,3 +371,23 @@ export type {
 } from "./coaching/relationships/listCoachRoster";
 export { getMyCoach } from "./coaching/relationships/getMyCoach";
 export type { MyCoachSummary } from "./coaching/relationships/getMyCoach";
+
+// --- Coach player progress tracking (#12) -----------------------------------
+export {
+  getCoachPlayerOverview,
+  getCoachPlayerOverviewInput,
+} from "./coaching/players/getCoachPlayerOverview";
+export type {
+  CoachPlayerOverview,
+  GetCoachPlayerOverviewInput,
+} from "./coaching/players/getCoachPlayerOverview";
+export {
+  listCoachPlayerSessions,
+  listCoachPlayerSessionsInput,
+} from "./coaching/players/listCoachPlayerSessions";
+export type { ListCoachPlayerSessionsInput } from "./coaching/players/listCoachPlayerSessions";
+export {
+  listCoachPlayerCheckins,
+  listCoachPlayerCheckinsInput,
+} from "./coaching/players/listCoachPlayerCheckins";
+export type { ListCoachPlayerCheckinsInput } from "./coaching/players/listCoachPlayerCheckins";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import {
   useMutation,
   useQueryClient,
@@ -132,22 +133,24 @@ export function RosterPanel() {
         ) : (
           <ul className="flex flex-col gap-2">
             {roster.map((entry) => (
-              <li
-                key={entry.relationshipId}
-                className="flex items-center justify-between gap-4 rounded-lg border p-3"
-              >
-                <div>
-                  <p className="font-medium">{entry.player.name}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {entry.player.email}
-                  </p>
-                </div>
-                {entry.startedAt && (
-                  <p className="text-muted-foreground text-xs">
-                    Coaching since{" "}
-                    {new Date(entry.startedAt).toLocaleDateString()}
-                  </p>
-                )}
+              <li key={entry.relationshipId}>
+                <Link
+                  href={`/coach/players/${entry.player.userId}`}
+                  className="hover:bg-accent flex items-center justify-between gap-4 rounded-lg border p-3"
+                >
+                  <div>
+                    <p className="font-medium">{entry.player.name}</p>
+                    <p className="text-muted-foreground text-xs">
+                      {entry.player.email}
+                    </p>
+                  </div>
+                  {entry.startedAt && (
+                    <p className="text-muted-foreground text-xs">
+                      Coaching since{" "}
+                      {new Date(entry.startedAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </Link>
               </li>
             ))}
           </ul>
