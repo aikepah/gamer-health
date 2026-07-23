@@ -35,7 +35,7 @@ export function WellnessTrendChart({
 } = {}) {
   const trpc = useTRPC();
   const query = useQuery({
-    ...trpc.dashboard.wellnessTrend.queryOptions({}),
+    ...trpc.dashboard.wellnessTrend.queryOptions({ days: rangeDays }),
     enabled: overrideData === undefined,
   });
   const data = overrideData ?? query.data;

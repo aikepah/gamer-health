@@ -24,7 +24,7 @@ export function HabitCompletionCard({
 } = {}) {
   const trpc = useTRPC();
   const query = useQuery({
-    ...trpc.dashboard.habitCompletion.queryOptions({}),
+    ...trpc.dashboard.habitCompletion.queryOptions({ days: rangeDays }),
     enabled: overrideData === undefined,
   });
   const data = overrideData ?? query.data;

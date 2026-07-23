@@ -37,7 +37,7 @@ export function WeeklyPlaytimeChart({
 } = {}) {
   const trpc = useTRPC();
   const query = useQuery({
-    ...trpc.dashboard.playtimeByDay.queryOptions({}),
+    ...trpc.dashboard.playtimeByDay.queryOptions({ days: rangeDays }),
     enabled: overrideData === undefined,
   });
   const data = overrideData ?? query.data;

@@ -36,7 +36,7 @@ export function PlaytimeVsWellnessChart({
 } = {}) {
   const trpc = useTRPC();
   const query = useQuery({
-    ...trpc.dashboard.playtimeVsWellness.queryOptions({}),
+    ...trpc.dashboard.playtimeVsWellness.queryOptions({ days: rangeDays }),
     enabled: overrideData === undefined,
   });
   const data = overrideData ?? query.data;
