@@ -50,7 +50,10 @@ export async function updateCoachHabitDefinition(
     );
   }
 
-  if (input.defaultConfig) {
+  // Validate whenever a config is provided at all, matching the `!== undefined`
+  // guard used for the `set` below. (`{}` is truthy, so it was already
+  // validated — but keep the two guards identical so they can't diverge.)
+  if (input.defaultConfig !== undefined) {
     validateHabitConfig(existing.triggerType, input.defaultConfig);
   }
 

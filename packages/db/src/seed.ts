@@ -1161,12 +1161,21 @@ async function seedCoachHabitAssignments(
   if (!hydrateDefId) {
     throw new Error("Seed built-in habit definition not found: hydrate");
   }
-  await db
+  const [hydrateReassigned] = await db
     .update(Habit)
     .set({ assignedByUserId: coachId })
     .where(
       and(eq(Habit.userId, demoUserId), eq(Habit.definitionId, hydrateDefId)),
+    )
+    .returning({ id: Habit.id });
+  // seedHabitEngine must have self-adopted "hydrate" for the demo user first;
+  // if that ordering ever changes this silently produces no "coach took over
+  // a default habit" demo state — fail loudly instead of leaving it missing.
+  if (!hydrateReassigned) {
+    throw new Error(
+      "seed: demo user has no 'hydrate' habit instance to reassign — must run after seedHabitEngine",
     );
+  }
 }
 
 // --- Check-ins: demo user's daily + post_session history. None dated today
