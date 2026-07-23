@@ -65,6 +65,8 @@ export function HabitCard({ item }: { item: HabitItem }) {
     });
   }
 
+  const isAssigned = item.assignedByUserId !== null;
+
   return (
     <div className="border-border rounded-lg border p-4">
       <div className="flex items-start justify-between gap-4">
@@ -76,8 +78,19 @@ export function HabitCard({ item }: { item: HabitItem }) {
                 Archived
               </span>
             )}
+            {isAssigned && (
+              <span className="bg-accent text-accent-foreground rounded px-1.5 py-0.5 text-xs">
+                Assigned by {item.assignedByName ?? "your coach"}
+              </span>
+            )}
           </div>
           <p className="text-muted-foreground text-sm">{item.description}</p>
+          {isAssigned && (
+            <p className="text-muted-foreground mt-1 text-xs">
+              Your coach can see whether you complete this. You can pause or
+              reconfigure it, but only your coach can remove it.
+            </p>
+          )}
         </div>
         <Button
           type="button"
@@ -86,7 +99,13 @@ export function HabitCard({ item }: { item: HabitItem }) {
           aria-pressed={enabled}
           onClick={() => setEnabled((v) => !v)}
         >
-          {enabled ? "Enabled" : "Disabled"}
+          {isAssigned
+            ? enabled
+              ? "Pause"
+              : "Resume"
+            : enabled
+              ? "Enabled"
+              : "Disabled"}
         </Button>
       </div>
 

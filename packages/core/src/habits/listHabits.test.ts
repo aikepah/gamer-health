@@ -52,20 +52,29 @@ function makeCtx(options: {
   userId: string | null;
   instances?: (HabitRow & { definition: HabitDefinitionRow })[];
   catalog?: HabitDefinitionRow[];
+  users?: { id: string; name: string }[];
 }): {
   ctx: ServiceCtx;
   habitFindMany: ReturnType<typeof vi.fn>;
   defFindMany: ReturnType<typeof vi.fn>;
+  userFindMany: ReturnType<typeof vi.fn>;
 } {
   const habitFindMany = vi.fn().mockResolvedValue(options.instances ?? []);
   const defFindMany = vi.fn().mockResolvedValue(options.catalog ?? []);
+  const userFindMany = vi.fn().mockResolvedValue(options.users ?? []);
   const db = {
     query: {
       Habit: { findMany: habitFindMany },
       HabitDefinition: { findMany: defFindMany },
+      user: { findMany: userFindMany },
     },
   } as unknown as ServiceCtx["db"];
-  return { ctx: { db, userId: options.userId }, habitFindMany, defFindMany };
+  return {
+    ctx: { db, userId: options.userId },
+    habitFindMany,
+    defFindMany,
+    userFindMany,
+  };
 }
 
 describe("listHabits", () => {
@@ -158,5 +167,46 @@ describe("listHabits", () => {
     const result = await listHabits(ctx);
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject({ slug: "old_habit", archived: true });
+  });
+
+  it("resolves assignedByName from a single batched user lookup (#14)", async () => {
+    const hydrate = makeDefRow();
+    const instance = makeHabitRow(hydrate, {
+      id: "habit_hydrate",
+      assignedByUserId: "coach_1",
+    });
+    const { ctx, userFindMany } = makeCtx({
+      userId: "user_1",
+      instances: [instance],
+      catalog: [hydrate],
+      users: [{ id: "coach_1", name: "Demo Coach" }],
+    });
+
+    const result = await listHabits(ctx);
+
+    expect(userFindMany).toHaveBeenCalledTimes(1);
+    const hydrateItem = result.find((r) => r.slug === "hydrate");
+    expect(hydrateItem).toMatchObject({
+      assignedByUserId: "coach_1",
+      assignedByName: "Demo Coach",
+    });
+  });
+
+  it("skips the user lookup entirely when no instance is assigned", async () => {
+    const hydrate = makeDefRow();
+    const instance = makeHabitRow(hydrate, { id: "habit_hydrate" });
+    const { ctx, userFindMany } = makeCtx({
+      userId: "user_1",
+      instances: [instance],
+      catalog: [hydrate],
+    });
+
+    const result = await listHabits(ctx);
+
+    expect(userFindMany).not.toHaveBeenCalled();
+    expect(result[0]).toMatchObject({
+      assignedByUserId: null,
+      assignedByName: null,
+    });
   });
 });
