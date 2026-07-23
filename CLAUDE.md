@@ -30,6 +30,24 @@ pnpm format:fix && pnpm lint:fix # auto-fix style issues
 Env lives in root `.env` (copy from `.env.example`). `packages/db` scripts load it
 via `pnpm with-env`.
 
+### CI parity — run this before pushing, not just typecheck/lint
+
+CI runs four jobs: `format`, `lint` + `lint:ws`, `typecheck`, `test`. Running
+only typecheck/lint locally is how a PR gets a green local run and a red CI.
+
+```bash
+find . -path "*/.cache/.prettiercache" -delete && pnpm format:fix && pnpm format && pnpm lint && pnpm lint:ws && pnpm typecheck && pnpm test
+```
+
+**Delete the prettier cache first.** `format`/`format:fix` both pass
+`--cache --cache-location .cache/.prettiercache`, so a stale cache marks a
+file clean: `format:fix` skips rewriting it AND `format` reports pass, while
+CI (which has no cache) fails on it. This is the single most common cause of
+red CI on this repo.
+
+Also: **never pipe a check into `tail`/`grep` and read `$?`** — you get the
+pipe's exit code, not the check's. Assign it directly (`pnpm lint; rc=$?`).
+
 ## Architecture rule: tool-first service layer
 
 **Every domain action is a plain typed function in `packages/core`**, shape
@@ -63,12 +81,12 @@ exported alongside it (or from `@gamer-health/validators`).
 
 Subagents live in `.claude/agents/`. Default routing:
 
-| Agent | Model | Use for |
-|---|---|---|
-| `feature-builder` | Sonnet | Implementing one scoped feature end-to-end |
-| `test-hardener` | Sonnet | Adding/extending Vitest + Playwright coverage |
-| `architect` | Opus | Schema design, cross-cutting contracts, feature specs (`docs/features/*.md`) |
-| `debugger` | Opus | Escalation when a builder is stuck |
+| Agent             | Model  | Use for                                                                      |
+| ----------------- | ------ | ---------------------------------------------------------------------------- |
+| `feature-builder` | Sonnet | Implementing one scoped feature end-to-end                                   |
+| `test-hardener`   | Sonnet | Adding/extending Vitest + Playwright coverage                                |
+| `architect`       | Opus   | Schema design, cross-cutting contracts, feature specs (`docs/features/*.md`) |
+| `debugger`        | Opus   | Escalation when a builder is stuck                                           |
 
 **Phase workflow (in order — issues come first):**
 

@@ -21,13 +21,17 @@ export interface ListSessionsResult {
   total: number;
 }
 
-/** Lists the caller's sessions, newest first, optionally filtered by date range. */
-export async function listSessions(
+/**
+ * Lists `userId`'s sessions, newest first, optionally filtered by date range.
+ * Explicit-user inner function — callers that have already authorized a
+ * specific target user (e.g. coach-scoped reads via `assertCoachOf`) call
+ * this directly; `listSessions` below is the caller's-own-data wrapper.
+ */
+export async function listSessionsFor(
   ctx: ServiceCtx,
+  userId: string,
   input: ListSessionsInput,
 ): Promise<ListSessionsResult> {
-  const userId = requireUserId(ctx);
-
   const conditions = [eq(GameSession.userId, userId)];
   if (input.from) {
     conditions.push(gte(GameSession.startedAt, input.from));
@@ -52,4 +56,12 @@ export async function listSessions(
     items,
     total: totalRows[0]?.value ?? 0,
   };
+}
+
+/** Lists the caller's sessions, newest first, optionally filtered by date range. */
+export async function listSessions(
+  ctx: ServiceCtx,
+  input: ListSessionsInput,
+): Promise<ListSessionsResult> {
+  return listSessionsFor(ctx, requireUserId(ctx), input);
 }

@@ -30,13 +30,15 @@ export type GetGamificationSummaryInput = z.infer<
 
 /**
  * Total XP, derived level/progress, and all streak counters (zeroed when no
- * row exists yet) for the caller.
+ * row exists yet) for `userId`. Explicit-user inner function — callers that
+ * have already authorized a specific target user (e.g. coach-scoped reads
+ * via `assertCoachOf`) call this directly; `getGamificationSummary` below is
+ * the caller's-own-data wrapper.
  */
-export async function getGamificationSummary(
+export async function getGamificationSummaryFor(
   ctx: ServiceCtx,
+  userId: string,
 ): Promise<GamificationSummary> {
-  const userId = requireUserId(ctx);
-
   const [[totals], streakRows] = await Promise.all([
     ctx.db
       .select({ totalXp: sum(RewardEvent.xp) })
@@ -58,6 +60,16 @@ export async function getGamificationSummary(
   });
 
   return { ...levelProgress(totalXp), streaks };
+}
+
+/**
+ * Total XP, derived level/progress, and all streak counters (zeroed when no
+ * row exists yet) for the caller.
+ */
+export async function getGamificationSummary(
+  ctx: ServiceCtx,
+): Promise<GamificationSummary> {
+  return getGamificationSummaryFor(ctx, requireUserId(ctx));
 }
 
 export interface AchievementSummary {

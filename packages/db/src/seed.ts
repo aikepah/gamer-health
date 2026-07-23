@@ -32,6 +32,7 @@ import {
   CoachProfile,
   Game,
   GameSession,
+  Goal,
   Habit,
   HabitDefinition,
   HabitPrompt,
@@ -682,6 +683,13 @@ function daysAgo(n: number): Date {
   return d;
 }
 
+/** "YYYY-MM-DD" `n` days from today (negative = in the past), UTC-anchored. */
+function dateStringDaysFromNow(n: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 // --- Coaching relationships & roster (#11): the ACTIVE relationship every
 // downstream coach-side feature (#12–#15) and `assertCoachOf` need to find
 // something on a fresh seed, plus one `ended` row so terminal-state
@@ -740,6 +748,94 @@ async function seedCoachingRelationships(
       endedAt: daysAgo(10),
       endedByUserId: player3Id,
       endReason: "Schedules stopped lining up.",
+    },
+  ]);
+}
+
+// --- Goals (#13): coach-assigned goals for the demo user, one per status
+// (plus a second `open` one that's overdue) so every UI state on `/goals`,
+// the coach's Goals panel, and the roster summary chip is reachable from a
+// fresh seed. Runs after `seedCoachingRelationships` (needs the active
+// demo <-> coach relationship's id). Player1 deliberately gets none — their
+// relationship with the demo coach is only `applied`, never `active`, so
+// `createGoal`'s `assertCoachOf` gate would reject it anyway; this is the
+// empty-state case for #13's UI. ---------------------------------------
+
+async function seedGoals(demoUserId: string, coachId: string) {
+  const relationship = await db.query.CoachingRelationship.findFirst({
+    where: and(
+      eq(CoachingRelationship.playerUserId, demoUserId),
+      eq(CoachingRelationship.coachUserId, coachId),
+      eq(CoachingRelationship.status, "active"),
+    ),
+    columns: { id: true },
+  });
+  if (!relationship) {
+    throw new Error(
+      "seedGoals: no active demo user <-> demo coach relationship found — run after seedCoachingRelationships",
+    );
+  }
+
+  // Idempotency: wipe the demo user's coach-assigned goals and re-insert.
+  // Scoped to this coach's assignments so a future self-authored goal
+  // (assignedByUserId null) for the demo user would survive a re-seed.
+  await db
+    .delete(Goal)
+    .where(
+      and(
+        eq(Goal.playerUserId, demoUserId),
+        eq(Goal.assignedByUserId, coachId),
+      ),
+    );
+
+  await db.insert(Goal).values([
+    {
+      // open, future target date, with a progress note already in progress.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "Wind down by 11pm on weeknights",
+      description: "Stop ranked queue by 10:30pm so there's time to unwind.",
+      targetDate: dateStringDaysFromNow(14),
+      status: "open",
+      progressNote: "Made it 4 of the last 5 nights — Thursday slipped.",
+    },
+    {
+      // open, but overdue — exercises the roster chip's "overdue" count and
+      // the player-side overdue badge.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "Take a break every 90 minutes",
+      description: "Stand up and stretch during long sessions.",
+      targetDate: dateStringDaysFromNow(-5),
+      status: "open",
+      progressNote: null,
+    },
+    {
+      // completed.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "Journal mood after ranked losses",
+      description: null,
+      targetDate: dateStringDaysFromNow(-20),
+      status: "completed",
+      progressNote: "Kept this up for three weeks straight — it helped.",
+      closedAt: daysAgo(3),
+    },
+    {
+      // abandoned.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "No energy drinks after 6pm",
+      description: "Swap for water or an electrolyte mix in the evening.",
+      targetDate: null,
+      status: "abandoned",
+      progressNote:
+        "Caffeine wasn't the real issue — revisiting with sleep timing instead.",
+      closedAt: daysAgo(7),
     },
   ]);
 }
@@ -1462,6 +1558,10 @@ async function seed() {
   // --- Coaching relationships & roster (#11): the active demo relationship
   // + one ended one, so #12–#15 and assertCoachOf have something to find.
   await seedCoachingRelationships(demoUser.id, player3Id, coachId);
+
+  // --- Goals (#13): coach-assigned goals for the demo user, one per status.
+  // Runs after seedCoachingRelationships (needs the active relationship).
+  await seedGoals(demoUser.id, coachId);
 
   // --- Habit engine: demo user's habits + representative historical prompts
   const prompts = await seedHabitEngine(
