@@ -50,6 +50,12 @@ export async function endCoachingRelationship(
   }
 
   await ctx.db.transaction(async (tx: TxDb) => {
+    // One timestamp for the whole transaction: the relationship end, the
+    // session cancellations, and the "future" cutoff all share it, so a
+    // session starting in the same instant can't be both cancelled and
+    // treated as already-past by two different `new Date()` reads.
+    const now = new Date();
+
     // Conditional on id + still `active`: the read above isn't atomic with
     // this write, and a concurrent end (from the other party) could race it.
     // Zero updated rows means we lost that race.
@@ -57,7 +63,7 @@ export async function endCoachingRelationship(
       .update(CoachingRelationship)
       .set({
         status: "ended",
-        endedAt: new Date(),
+        endedAt: now,
         endedByUserId: authz.userId,
         endReason: input.reason ?? null,
       })
@@ -84,7 +90,7 @@ export async function endCoachingRelationship(
       .update(CoachingSession)
       .set({
         status: "cancelled",
-        cancelledAt: new Date(),
+        cancelledAt: now,
         cancelledByUserId: authz.userId,
         cancelReason: "Coaching relationship ended",
       })
@@ -92,7 +98,7 @@ export async function endCoachingRelationship(
         and(
           eq(CoachingSession.relationshipId, input.relationshipId),
           inArray(CoachingSession.status, ["proposed", "confirmed"]),
-          gt(CoachingSession.startsAt, new Date()),
+          gt(CoachingSession.startsAt, now),
         ),
       );
   });

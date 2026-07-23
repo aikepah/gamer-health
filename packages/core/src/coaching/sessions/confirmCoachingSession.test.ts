@@ -144,7 +144,7 @@ describe("confirmCoachingSession", () => {
       confirmCoachingSession(ctx, { sessionId: "session_1" }),
     ).rejects.toMatchObject({
       code: "CONFLICT",
-      message: "Your coach is already booked then",
+      message: "You already have a confirmed session in that slot",
     });
   });
 

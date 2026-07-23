@@ -78,14 +78,10 @@ export function SessionItem({
         <div>
           <p className="font-medium">{otherPartyLabel}</p>
           <p className="text-muted-foreground text-sm">
-            {formatSessionWindow(
-              session.startsAt,
-              session.endsAt,
-              // The coach's own timezone isn't in this row; falling back to
-              // the viewer's own zone just suppresses the "(coach's time: …)"
-              // suffix, which is the right degradation here.
-              Intl.DateTimeFormat().resolvedOptions().timeZone,
-            )}
+            {/* The coach's own timezone isn't in this row, so omit it — the
+                formatter suppresses the "(coach's time: …)" suffix when it's
+                absent rather than being handed a placeholder zone. */}
+            {formatSessionWindow(session.startsAt, session.endsAt)}
           </p>
         </div>
         <span className={`text-xs font-semibold ${toneClass}`}>

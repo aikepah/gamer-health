@@ -80,7 +80,12 @@ export async function confirmCoachingSession(
       ),
     });
     if (overlapping) {
-      throw new CoreError("CONFLICT", "Your coach is already booked then");
+      // Coach-facing copy: confirm is called by the coach, unlike propose's
+      // player-facing "Your coach is already booked then".
+      throw new CoreError(
+        "CONFLICT",
+        "You already have a confirmed session in that slot",
+      );
     }
 
     const now = new Date();

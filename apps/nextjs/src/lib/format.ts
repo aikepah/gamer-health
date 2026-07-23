@@ -2,13 +2,15 @@
  * Formats a coaching session's time window (#15) in the VIEWER's local
  * timezone — never passed explicitly; `toLocaleString` always uses the
  * browser's own zone, which is exactly "the viewer's timezone" for a client
- * component. Appends the coach's timezone alongside only when it differs
- * from the viewer's, per docs/features/coaching-sessions.md.
+ * component. Appends the coach's time alongside only when `coachTimezone` is
+ * both known AND differs from the viewer's, per
+ * docs/features/coaching-sessions.md. Callers that don't have the coach's
+ * zone pass `undefined` (or omit it), which cleanly suppresses the suffix.
  */
 export function formatSessionWindow(
   startsAt: Date | string,
   endsAt: Date | string,
-  coachTimezone: string,
+  coachTimezone?: string,
 ): string {
   const start = new Date(startsAt);
   const end = new Date(endsAt);
@@ -26,7 +28,7 @@ export function formatSessionWindow(
   const endLabel = end.toLocaleTimeString(undefined, timeOpts);
   let label = `${dateLabel}, ${startLabel}–${endLabel}`;
 
-  if (viewerTimezone !== coachTimezone) {
+  if (coachTimezone && viewerTimezone !== coachTimezone) {
     const coachStart = start.toLocaleTimeString(undefined, {
       ...timeOpts,
       timeZone: coachTimezone,
