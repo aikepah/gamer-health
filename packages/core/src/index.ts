@@ -391,3 +391,31 @@ export {
   listCoachPlayerCheckinsInput,
 } from "./coaching/players/listCoachPlayerCheckins";
 export type { ListCoachPlayerCheckinsInput } from "./coaching/players/listCoachPlayerCheckins";
+
+// --- Goals (#13) -------------------------------------------------------------
+export type { GoalListItem, GoalRow } from "./coaching/goals/common";
+export { createGoal, createGoalInput } from "./coaching/goals/createGoal";
+export type { CreateGoalInput } from "./coaching/goals/createGoal";
+export { updateGoal, updateGoalInput } from "./coaching/goals/updateGoal";
+export type { UpdateGoalInput } from "./coaching/goals/updateGoal";
+export {
+  setGoalStatus,
+  setGoalStatusInput,
+} from "./coaching/goals/setGoalStatus";
+export type { SetGoalStatusInput } from "./coaching/goals/setGoalStatus";
+export {
+  updateGoalProgress,
+  updateGoalProgressInput,
+} from "./coaching/goals/updateGoalProgress";
+export type { UpdateGoalProgressInput } from "./coaching/goals/updateGoalProgress";
+export { deleteGoal, deleteGoalInput } from "./coaching/goals/deleteGoal";
+export type { DeleteGoalInput } from "./coaching/goals/deleteGoal";
+export { listMyGoals, listMyGoalsInput } from "./coaching/goals/listMyGoals";
+export type { ListMyGoalsInput } from "./coaching/goals/listMyGoals";
+export {
+  listPlayerGoals,
+  listPlayerGoalsInput,
+} from "./coaching/goals/listPlayerGoals";
+export type { ListPlayerGoalsInput } from "./coaching/goals/listPlayerGoals";
+export { getRosterGoalSummary } from "./coaching/goals/getRosterGoalSummary";
+export type { RosterGoalSummaryRow } from "./coaching/goals/getRosterGoalSummary";

@@ -8,21 +8,22 @@ import {
   trpc,
 } from "~/trpc/server";
 import { CoachPlayerOverviewPanel } from "./_components/coach-player-overview-panel";
+import { GoalsPanel } from "./_components/goals-panel";
 
 const DEFAULT_DAYS = 7;
 
 /**
- * Coach player progress tracking (#12): a read-only view of a roster
- * player's wellness data (session log, habit completion, mood/energy trend,
- * playtime-vs-wellness, streaks and level). Every panel is driven by a
- * single `coaching.players.overview` call, authorized once via
- * `assertCoachOf` inside that service — see
- * docs/features/coach-player-tracking.md.
+ * Shared coach-side player detail page (#12/#13/#14 each land a section
+ * here). #12 (coach-player-tracking) owns the identity/activity overview,
+ * driven by a single `coaching.players.overview` call authorized once via
+ * `assertCoachOf`; #13 adds the Goals panel below, in its own component so
+ * the features don't collide on this file.
  *
- * `getCoachPlayerOverviewOrNull` resolves the same call server-side so a
+ * `getCoachPlayerOverviewOrNull` resolves the overview server-side so a
  * non-roster player, an ended relationship, or a non-coach caller (`/coach/*`
  * layout already redirects admins) bounces back to the roster with an error
- * toast rather than rendering a broken page.
+ * toast rather than rendering a broken page — and it also gates the Goals
+ * panel, since a caller who can't see the overview can't see the goals.
  */
 export default async function CoachPlayerPage({
   params,
@@ -50,6 +51,7 @@ export default async function CoachPlayerPage({
       days: DEFAULT_DAYS,
     }),
   );
+  prefetch(trpc.coaching.goals.listForPlayer.queryOptions({ playerUserId }));
 
   return (
     <HydrateClient>
@@ -58,6 +60,9 @@ export default async function CoachPlayerPage({
           playerUserId={playerUserId}
           defaultDays={DEFAULT_DAYS}
         />
+        <div className="mt-10">
+          <GoalsPanel playerUserId={playerUserId} />
+        </div>
       </main>
     </HydrateClient>
   );
