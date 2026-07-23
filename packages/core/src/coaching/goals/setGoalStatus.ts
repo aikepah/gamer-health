@@ -44,13 +44,20 @@ export async function setGoalStatus(
   }
 
   if (goal.playerUserId !== authz.userId) {
+    // A non-owner PLAYER (or any non-coach) gets NOT_FOUND, hiding the
+    // goal's existence — spec acceptance criterion 5: "a player cannot touch
+    // another player's goal (NOT_FOUND)". Same existence-hiding convention
+    // as withdrawApplication. Only a coach reaches the roster check below.
+    if (authz.role !== "coach") {
+      throw new CoreError("NOT_FOUND", "Goal not found");
+    }
     try {
       await assertCoachOf(ctx, goal.playerUserId);
     } catch (err) {
-      // Only an authorization failure is flattened to a bare FORBIDDEN, so
-      // the caller can't tell "not your goal" from "not their coach".
-      // Anything else — a DB blip, a bug inside assertCoachOf — must
-      // propagate, or real failures get misreported as permission errors.
+      // A failed coach check is a bare FORBIDDEN so it can't be told apart
+      // from "not their coach". Anything else — a DB blip, a bug inside
+      // assertCoachOf — must propagate, not be misreported as a permission
+      // error.
       if (err instanceof CoreError && err.code === "FORBIDDEN") {
         throw new CoreError("FORBIDDEN");
       }

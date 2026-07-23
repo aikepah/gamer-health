@@ -777,7 +777,16 @@ async function seedGoals(demoUserId: string, coachId: string) {
   }
 
   // Idempotency: wipe the demo user's coach-assigned goals and re-insert.
-  await db.delete(Goal).where(eq(Goal.playerUserId, demoUserId));
+  // Scoped to this coach's assignments so a future self-authored goal
+  // (assignedByUserId null) for the demo user would survive a re-seed.
+  await db
+    .delete(Goal)
+    .where(
+      and(
+        eq(Goal.playerUserId, demoUserId),
+        eq(Goal.assignedByUserId, coachId),
+      ),
+    );
 
   await db.insert(Goal).values([
     {

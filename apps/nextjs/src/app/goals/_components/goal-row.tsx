@@ -51,6 +51,17 @@ export function GoalRow({ goal }: { goal: GoalItem }) {
 
   const updateProgress = useMutation(
     trpc.coaching.goals.updateProgress.mutationOptions({
+      // Reconcile the field with what was actually persisted (the core schema
+      // trims and collapses "" -> null), but ONLY if the user hasn't kept
+      // typing since this save fired — otherwise a slow response would yank
+      // characters out from under active input. `variables.progressNote` is
+      // the raw value we submitted; if the field still equals it, they paused.
+      onSuccess: (saved, variables) =>
+        setNote((current) =>
+          current === variables.progressNote
+            ? (saved.progressNote ?? "")
+            : current,
+        ),
       onError: (error) => toast.error(error.message || "Failed to save note"),
     }),
   );

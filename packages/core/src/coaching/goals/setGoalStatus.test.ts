@@ -121,7 +121,7 @@ describe("setGoalStatus", () => {
     expect(result.status).toBe("abandoned");
   });
 
-  it("throws a bare CoreError(FORBIDDEN) for a non-owner, non-coach caller (no leak)", async () => {
+  it("throws NOT_FOUND for a non-owner player, hiding the goal's existence (spec criterion 5)", async () => {
     const { ctx } = makeCtx({
       callerId: "someone_else",
       callerRole: "player",
@@ -130,7 +130,7 @@ describe("setGoalStatus", () => {
 
     await expect(
       setGoalStatus(ctx, { goalId: "goal_1", status: "completed" }),
-    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "FORBIDDEN" });
+    ).rejects.toMatchObject({ code: "NOT_FOUND", message: "Goal not found" });
   });
 
   it("throws CoreError(FORBIDDEN) for a coach without an active relationship to this player", async () => {
