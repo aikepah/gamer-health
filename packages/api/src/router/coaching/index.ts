@@ -5,6 +5,7 @@ import { goalsRouter } from "./goals";
 import { playersRouter } from "./players";
 import { profileRouter } from "./profile";
 import { relationshipsRouter } from "./relationships";
+import { sessionsRouter } from "./sessions";
 
 /**
  * Coaching router skeleton (MVP 2 wave 2, #9). #10–#15 each add one key here
@@ -20,4 +21,5 @@ export const coachingRouter = createTRPCRouter({
   players: playersRouter,
   goals: goalsRouter,
   assignedHabits: assignedHabitsRouter,
+  sessions: sessionsRouter,
 });

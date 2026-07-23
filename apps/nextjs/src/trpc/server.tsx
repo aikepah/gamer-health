@@ -44,6 +44,26 @@ export const getServerAuthz = cache(async (): Promise<Authz | null> => {
 });
 
 /**
+ * Server-side `coaching.relationships.myCoach` fetch, used only to decide
+ * whether the nav shows the player's "Coaching" (sessions) link (#15) —
+ * `null` for unauthenticated or coachless callers, same catch-all
+ * convention as `getPublicCoachProfileOrNull` below.
+ */
+export const getServerMyCoach = cache(
+  async (): Promise<RouterOutputs["coaching"]["relationships"]["myCoach"]> => {
+    const ctx = await createContext();
+    if (!ctx.session?.user) {
+      return null;
+    }
+    try {
+      return await appRouter.createCaller(ctx).coaching.relationships.myCoach();
+    } catch {
+      return null;
+    }
+  },
+);
+
+/**
  * Server-side `invite.byToken` fetch for the public `/invite/[token]` page,
  * which needs to branch synchronously on unknown-vs-known tokens rather than
  * just prefetching for client hydration. Returns `null` for any unknown

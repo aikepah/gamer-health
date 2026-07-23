@@ -1,3 +1,87 @@
+/**
+ * Formats a coaching session's time window (#15) in the VIEWER's local
+ * timezone — never passed explicitly; `toLocaleString` always uses the
+ * browser's own zone, which is exactly "the viewer's timezone" for a client
+ * component. Appends the coach's time alongside only when `coachTimezone` is
+ * both known AND differs from the viewer's, per
+ * docs/features/coaching-sessions.md. Callers that don't have the coach's
+ * zone pass `undefined` (or omit it), which cleanly suppresses the suffix.
+ */
+export function formatSessionWindow(
+  startsAt: Date | string,
+  endsAt: Date | string,
+  coachTimezone?: string,
+): string {
+  const start = new Date(startsAt);
+  const end = new Date(endsAt);
+  const viewerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const timeOpts: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+  };
+
+  const dateLabel = start.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+  const startLabel = start.toLocaleTimeString(undefined, timeOpts);
+  const endLabel = end.toLocaleTimeString(undefined, timeOpts);
+  let label = `${dateLabel}, ${startLabel}–${endLabel}`;
+
+  if (coachTimezone && viewerTimezone !== coachTimezone) {
+    const coachStart = start.toLocaleTimeString(undefined, {
+      ...timeOpts,
+      timeZone: coachTimezone,
+    });
+    const coachEnd = end.toLocaleTimeString(undefined, {
+      ...timeOpts,
+      timeZone: coachTimezone,
+    });
+    label += ` (coach's time: ${coachStart}–${coachEnd})`;
+  }
+  return label;
+}
+
+/**
+ * Converts a wall-clock date + minute-of-day in `timeZone` into a UTC
+ * instant, using only `Intl` (no timezone library) — good enough for a
+ * client-side slot picker; the server (`packages/core`) re-derives and
+ * validates the real containment check regardless. `minuteOfDay` may be
+ * 1440 (midnight rollover), which `Date.UTC` normalizes to the next day.
+ */
+export function zonedWallTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  minuteOfDay: number,
+  timeZone: string,
+): Date {
+  const hours = Math.floor(minuteOfDay / 60);
+  const minutes = minuteOfDay % 60;
+  const naiveUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+  const asIfLocal = new Date(naiveUtc.toLocaleString("en-US", { timeZone }));
+  const asIfUtc = new Date(
+    naiveUtc.toLocaleString("en-US", { timeZone: "UTC" }),
+  );
+  const offsetMs = asIfUtc.getTime() - asIfLocal.getTime();
+  return new Date(naiveUtc.getTime() + offsetMs);
+}
+
+/** "YYYY-MM-DD" wall-clock date for `instant` in `timeZone` (client-side, Intl only). */
+export function localDateParts(
+  instant: Date,
+  timeZone: string,
+): { year: number; month: number; day: number } {
+  const formatted = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(instant);
+  const [year, month, day] = formatted.split("-").map(Number);
+  return { year: year ?? 1970, month: month ?? 1, day: day ?? 1 };
+}
+
 /** Formats a duration in milliseconds as e.g. "1h 23m" (or just "23m" under an hour). */
 export function formatDuration(ms: number): string {
   const totalMinutes = Math.max(0, Math.floor(ms / 60_000));

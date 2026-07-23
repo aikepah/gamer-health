@@ -6,12 +6,16 @@ import { Button } from "@gamer-health/ui/button";
 import { ThemeToggle } from "@gamer-health/ui/theme";
 
 import { auth, getSession } from "~/auth/server";
-import { getServerAuthz } from "~/trpc/server";
+import { getServerAuthz, getServerMyCoach } from "~/trpc/server";
 import { NavLinks } from "./nav-links";
 
 export async function AppNav() {
   const session = await getSession();
   const authz = session ? await getServerAuthz() : null;
+  // #15: only fetched for players (coaches never need it, and it'd 404-ish
+  // anyway since `myCoach` is the player-side query).
+  const myCoach =
+    session && authz?.role !== "coach" ? await getServerMyCoach() : null;
 
   return (
     <header className="bg-background/80 border-border sticky top-0 z-40 border-b backdrop-blur">
@@ -27,6 +31,7 @@ export async function AppNav() {
           <NavLinks
             isAdmin={authz?.role === "admin"}
             isCoach={authz?.role === "coach"}
+            hasCoach={myCoach !== null}
           />
         )}
 

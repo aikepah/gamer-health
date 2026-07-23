@@ -28,6 +28,7 @@ import {
   CoachAvailability,
   CoachGame,
   CoachingRelationship,
+  CoachingSession,
   CoachInvite,
   CoachProfile,
   Game,
@@ -428,6 +429,33 @@ function chicagoLocal(daysAgo: number, localHour: number, localMinute = 0) {
   d.setUTCDate(d.getUTCDate() - daysAgo);
   d.setUTCHours(localHour + CHICAGO_UTC_OFFSET_HOURS, localMinute, 0, 0);
   return d;
+}
+
+/**
+ * Future counterpart to `chicagoLocal` (#15 coaching sessions): the next
+ * occurrence of `weekday` (0=Sun..6=Sat) that is at least `minDaysFromNow`
+ * days out, at `localHour`:`localMinute` Chicago wall-clock — same
+ * fixed-CDT-offset approximation as `chicagoLocal`, so seeded proposed/
+ * confirmed sessions always land inside the demo coaches' seeded
+ * availability blocks (Mon/Wed/Fri/Sat for the demo coach, Tue/Thu for
+ * Dana Whitfield) no matter what day the seed happens to run on.
+ */
+function nextChicagoWeekday(
+  weekday: number,
+  minDaysFromNow: number,
+  localHour: number,
+  localMinute = 0,
+) {
+  for (let offset = minDaysFromNow; offset < minDaysFromNow + 7; offset++) {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() + offset);
+    if (d.getUTCDay() === weekday) {
+      d.setUTCHours(localHour + CHICAGO_UTC_OFFSET_HOURS, localMinute, 0, 0);
+      return d;
+    }
+  }
+  throw new Error(`No occurrence of weekday ${weekday} found`);
 }
 
 async function seedSessionTracking(demoUserId: string) {
@@ -836,6 +864,90 @@ async function seedGoals(demoUserId: string, coachId: string) {
       progressNote:
         "Caffeine wasn't the real issue — revisiting with sleep timing instead.",
       closedAt: daysAgo(7),
+    },
+  ]);
+}
+
+/**
+ * Coaching sessions (#15) for the seeded ACTIVE demo↔coach relationship, one
+ * row per status so every UI state is reachable from a fresh seed.
+ *
+ * Future slots use `nextChicagoWeekday` so they always land inside the demo
+ * coach's seeded availability (Mon/Wed/Fri 17:00–20:00, Sat 10:00–14:00) no
+ * matter which day the seed runs — a seeded slot outside availability would
+ * render a session the app's own booking rules say is impossible.
+ *
+ * Must run AFTER `seedCoachingRelationships`: sessions FK to the relationship
+ * row, which that function deletes and re-inserts on every run.
+ */
+async function seedCoachingSessions(demoUserId: string, coachId: string) {
+  const relationship = await db.query.CoachingRelationship.findFirst({
+    where: and(
+      eq(CoachingRelationship.playerUserId, demoUserId),
+      eq(CoachingRelationship.coachUserId, coachId),
+      eq(CoachingRelationship.status, "active"),
+    ),
+  });
+  if (!relationship) {
+    throw new Error(
+      "seedCoachingSessions: expected an active demo/coach relationship",
+    );
+  }
+
+  // Idempotency: the FK cascade already clears these when
+  // seedCoachingRelationships re-inserts the pair, but deleting explicitly
+  // keeps this function safe to run on its own.
+  await db
+    .delete(CoachingSession)
+    .where(eq(CoachingSession.relationshipId, relationship.id));
+
+  const proposedStart = nextChicagoWeekday(3, 3, 17); // Wed 17:00
+  const confirmedStart = nextChicagoWeekday(5, 3, 18); // Fri 18:00
+  const anHourLater = (d: Date) => new Date(d.getTime() + 60 * 60 * 1000);
+
+  const base = {
+    relationshipId: relationship.id,
+    playerUserId: demoUserId,
+    coachUserId: coachId,
+    proposedByUserId: demoUserId,
+  };
+
+  await db.insert(CoachingSession).values([
+    {
+      ...base,
+      status: "proposed" as const,
+      startsAt: proposedStart,
+      endsAt: anHourLater(proposedStart),
+      note: "Want to talk through my late-night ranked sessions.",
+    },
+    {
+      ...base,
+      status: "confirmed" as const,
+      startsAt: confirmedStart,
+      endsAt: anHourLater(confirmedStart),
+      note: "Check-in on the sleep goal.",
+      confirmedAt: daysAgo(1),
+    },
+    {
+      ...base,
+      status: "completed" as const,
+      startsAt: daysAgo(7),
+      endsAt: anHourLater(daysAgo(7)),
+      note: "First session - set baseline habits.",
+      confirmedAt: daysAgo(9),
+      completedAt: daysAgo(7),
+    },
+    {
+      // Cancelled by the COACH with a reason, so both the cancelled-state UI
+      // and the who-cancelled attribution are reachable.
+      ...base,
+      status: "cancelled" as const,
+      startsAt: daysAgo(3),
+      endsAt: anHourLater(daysAgo(3)),
+      confirmedAt: daysAgo(5),
+      cancelledAt: daysAgo(4),
+      cancelledByUserId: coachId,
+      cancelReason: "Had to reschedule - sorry!",
     },
   ]);
 }
@@ -1562,6 +1674,10 @@ async function seed() {
   // --- Goals (#13): coach-assigned goals for the demo user, one per status.
   // Runs after seedCoachingRelationships (needs the active relationship).
   await seedGoals(demoUser.id, coachId);
+
+  // --- Coaching sessions (#15): one row per status on the active
+  // relationship. Must follow seedCoachingRelationships (FK + cascade).
+  await seedCoachingSessions(demoUser.id, coachId);
 
   // --- Habit engine: demo user's habits + representative historical prompts
   const prompts = await seedHabitEngine(

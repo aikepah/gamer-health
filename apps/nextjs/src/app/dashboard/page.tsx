@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { getSession } from "~/auth/server";
-import { HydrateClient, prefetch, trpc } from "~/trpc/server";
+import { getServerMyCoach, HydrateClient, prefetch, trpc } from "~/trpc/server";
 import { MyCoachCard } from "../_components/coaching/my-coach-card";
+import { UpcomingSessionCard } from "../_components/coaching/upcoming-session-card";
 import { HabitCompletionCard } from "../_components/dashboard/habit-completion-card";
 import { PlaytimeVsWellnessChart } from "../_components/dashboard/playtime-vs-wellness-chart";
 import { WeeklyPlaytimeChart } from "../_components/dashboard/weekly-playtime-chart";
@@ -24,6 +25,14 @@ export default async function DashboardPage() {
   prefetch(trpc.dashboard.playtimeVsWellness.queryOptions({}));
   prefetch(trpc.coaching.relationships.myCoach.queryOptions());
   prefetch(trpc.coaching.discovery.myApplications.queryOptions());
+  // #15: only worth prefetching/rendering the "next session" widget once the
+  // player actually has a coach to schedule with.
+  const myCoach = await getServerMyCoach();
+  if (myCoach) {
+    prefetch(
+      trpc.coaching.sessions.list.queryOptions({ scope: "upcoming", limit: 1 }),
+    );
+  }
 
   return (
     <HydrateClient>
@@ -33,6 +42,7 @@ export default async function DashboardPage() {
           <section className="flex flex-wrap items-start gap-4">
             <PlayerStatsCard />
             <MyCoachCard />
+            {myCoach && <UpcomingSessionCard />}
             <AchievementsList />
           </section>
 
