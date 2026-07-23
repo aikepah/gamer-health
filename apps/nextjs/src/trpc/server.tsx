@@ -88,6 +88,33 @@ export const getPublicCoachProfileOrNull = cache(
   },
 );
 
+/**
+ * Server-side `coaching.players.overview` fetch for
+ * `/coach/players/[playerUserId]` (#12), which needs to branch synchronously
+ * into a redirect back to `/coach/roster` for a non-roster player, an ended
+ * relationship, or a non-coach caller (including admins — they never pass
+ * `coachProcedure`). Any throw is treated as "not visible to this caller",
+ * same catch-all convention as `getPublicCoachProfileOrNull` above.
+ */
+export const getCoachPlayerOverviewOrNull = cache(
+  async (
+    playerUserId: string,
+    days: number,
+  ): Promise<RouterOutputs["coaching"]["players"]["overview"] | null> => {
+    const ctx = await createContext();
+    if (!ctx.session?.user) {
+      return null;
+    }
+    try {
+      return await appRouter
+        .createCaller(ctx)
+        .coaching.players.overview({ playerUserId, days });
+    } catch {
+      return null;
+    }
+  },
+);
+
 const getQueryClient = cache(createQueryClient);
 
 export const trpc = createTRPCOptionsProxy<AppRouter>({

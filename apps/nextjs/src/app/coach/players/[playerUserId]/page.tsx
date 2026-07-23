@@ -1,17 +1,31 @@
 import { redirect } from "next/navigation";
 
 import { getSession } from "~/auth/server";
-import { HydrateClient, prefetch, trpc } from "~/trpc/server";
+import {
+  getCoachPlayerOverviewOrNull,
+  HydrateClient,
+  prefetch,
+  trpc,
+} from "~/trpc/server";
+import { CoachPlayerOverviewPanel } from "./_components/coach-player-overview-panel";
 import { GoalsPanel } from "./_components/goals-panel";
 
+const DEFAULT_DAYS = 7;
+
 /**
- * Shared coach-side player detail page (#12/#13/#14 all land a section
- * here). This is the minimal shell — #12 (coach-player-tracking) owns the
- * player identity header / activity summary; #13 contributes only the
- * Goals panel below, in its own component so the three features don't
- * collide on the same file.
+ * Shared coach-side player detail page (#12/#13/#14 each land a section
+ * here). #12 (coach-player-tracking) owns the identity/activity overview,
+ * driven by a single `coaching.players.overview` call authorized once via
+ * `assertCoachOf`; #13 adds the Goals panel below, in its own component so
+ * the features don't collide on this file.
+ *
+ * `getCoachPlayerOverviewOrNull` resolves the overview server-side so a
+ * non-roster player, an ended relationship, or a non-coach caller (`/coach/*`
+ * layout already redirects admins) bounces back to the roster with an error
+ * toast rather than rendering a broken page — and it also gates the Goals
+ * panel, since a caller who can't see the overview can't see the goals.
  */
-export default async function CoachPlayerDetailPage({
+export default async function CoachPlayerPage({
   params,
 }: {
   params: Promise<{ playerUserId: string }>;
@@ -23,13 +37,32 @@ export default async function CoachPlayerDetailPage({
 
   const { playerUserId } = await params;
 
+  const overview = await getCoachPlayerOverviewOrNull(
+    playerUserId,
+    DEFAULT_DAYS,
+  );
+  if (!overview) {
+    redirect("/coach/roster?error=not-your-player");
+  }
+
+  prefetch(
+    trpc.coaching.players.overview.queryOptions({
+      playerUserId,
+      days: DEFAULT_DAYS,
+    }),
+  );
   prefetch(trpc.coaching.goals.listForPlayer.queryOptions({ playerUserId }));
 
   return (
     <HydrateClient>
-      <main className="container max-w-3xl py-16">
-        <h1 className="mb-8 text-3xl font-bold tracking-tight">Player</h1>
-        <GoalsPanel playerUserId={playerUserId} />
+      <main className="container max-w-5xl py-16">
+        <CoachPlayerOverviewPanel
+          playerUserId={playerUserId}
+          defaultDays={DEFAULT_DAYS}
+        />
+        <div className="mt-10">
+          <GoalsPanel playerUserId={playerUserId} />
+        </div>
       </main>
     </HydrateClient>
   );

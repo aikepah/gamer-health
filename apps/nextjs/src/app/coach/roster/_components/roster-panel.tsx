@@ -146,7 +146,7 @@ export function RosterPanel() {
                 <li key={entry.relationshipId}>
                   <Link
                     href={`/coach/players/${entry.player.userId}`}
-                    className="hover:bg-muted flex items-center justify-between gap-4 rounded-lg border p-3 transition-colors"
+                    className="hover:bg-accent flex items-center justify-between gap-4 rounded-lg border p-3 transition-colors"
                   >
                     <div>
                       <p className="font-medium">{entry.player.name}</p>

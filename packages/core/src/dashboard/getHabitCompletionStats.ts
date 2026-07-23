@@ -81,22 +81,18 @@ export function aggregateHabitCompletion(
 }
 
 /**
- * Habit-prompt completion stats over the last `input.days` days (default 7).
- * Bucketed by the local date of `dueAt`; `pending` prompts are excluded
- * entirely (not "not yet resolved" — just out of scope for a completion
- * rate). `byHabit` only lists definitions with at least one non-pending
- * prompt in range.
+ * Raw per-(definition, status) prompt counts (pending excluded) within
+ * `[startDate, endDate]` for `userId`, bucketed by the local date of
+ * `dueAt`. Shared by `getHabitCompletionStats` and coach-scoped reads
+ * (#12) that need the same aggregate for an explicit target user.
  */
-export async function getHabitCompletionStats(
+export async function queryHabitCompletionRaw(
   ctx: ServiceCtx,
-  input: GetHabitCompletionStatsInput,
-): Promise<HabitCompletionStats> {
-  const userId = requireUserId(ctx);
-  const profile = await getOrCreateProfile(ctx);
-  const tz = profile.timezone ?? "UTC";
-  const today = localDateString(new Date(), tz);
-  const { startDate, endDate } = buildLocalDateRange(today, input.days);
-
+  userId: string,
+  tz: string,
+  startDate: string,
+  endDate: string,
+): Promise<HabitCompletionCountRow[]> {
   const rows = await ctx.db
     .select({
       definitionId: Habit.definitionId,
@@ -116,12 +112,37 @@ export async function getHabitCompletionStats(
     )
     .groupBy(Habit.definitionId, HabitDefinition.title, HabitPrompt.status);
 
-  return aggregateHabitCompletion(
-    rows.map((r) => ({
-      definitionId: r.definitionId,
-      title: r.title,
-      status: r.status as NonPendingStatus,
-      count: Number(r.count),
-    })),
+  return rows.map((r) => ({
+    definitionId: r.definitionId,
+    title: r.title,
+    status: r.status as NonPendingStatus,
+    count: Number(r.count),
+  }));
+}
+
+/**
+ * Habit-prompt completion stats over the last `input.days` days (default 7).
+ * Bucketed by the local date of `dueAt`; `pending` prompts are excluded
+ * entirely (not "not yet resolved" — just out of scope for a completion
+ * rate). `byHabit` only lists definitions with at least one non-pending
+ * prompt in range.
+ */
+export async function getHabitCompletionStats(
+  ctx: ServiceCtx,
+  input: GetHabitCompletionStatsInput,
+): Promise<HabitCompletionStats> {
+  const userId = requireUserId(ctx);
+  const profile = await getOrCreateProfile(ctx);
+  const tz = profile.timezone ?? "UTC";
+  const today = localDateString(new Date(), tz);
+  const { startDate, endDate } = buildLocalDateRange(today, input.days);
+
+  const rows = await queryHabitCompletionRaw(
+    ctx,
+    userId,
+    tz,
+    startDate,
+    endDate,
   );
+  return aggregateHabitCompletion(rows);
 }
