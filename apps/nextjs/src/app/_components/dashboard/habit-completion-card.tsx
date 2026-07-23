@@ -2,21 +2,37 @@
 
 import { useQuery } from "@tanstack/react-query";
 
+import type { HabitCompletionStats } from "@gamer-health/core";
+
 import { useTRPC } from "~/trpc/react";
 import { ChartCard, ChartEmptyState, ChartSkeleton } from "./chart-card";
 
 /**
- * Completion-rate stat + per-habit done/total bars, last 7 days.
- * Presentation-only — fetches via `dashboard.habitCompletion` (defaults to 7
- * days server-side).
+ * Completion-rate stat + per-habit done/total bars. Presentation-only.
+ * Self-fetches via `dashboard.habitCompletion` (defaults to 7 days
+ * server-side) unless `data` is passed in — the coach player-overview page
+ * (#12) already has the data from its single authorized
+ * `coaching.players.overview` call and passes it down instead of firing a
+ * second, separately-authorized query.
  */
-export function HabitCompletionCard() {
+export function HabitCompletionCard({
+  data: overrideData,
+  rangeDays = 7,
+}: {
+  data?: HabitCompletionStats;
+  rangeDays?: number;
+} = {}) {
   const trpc = useTRPC();
-  const { data } = useQuery(trpc.dashboard.habitCompletion.queryOptions({}));
+  const query = useQuery({
+    ...trpc.dashboard.habitCompletion.queryOptions({ days: rangeDays }),
+    enabled: overrideData === undefined,
+  });
+  const data = overrideData ?? query.data;
+  const subtitle = `Last ${rangeDays} days`;
 
   if (!data) {
     return (
-      <ChartCard title="Habit completion" subtitle="Last 7 days">
+      <ChartCard title="Habit completion" subtitle={subtitle}>
         <ChartSkeleton />
       </ChartCard>
     );
@@ -24,8 +40,10 @@ export function HabitCompletionCard() {
 
   if (data.completionRate === null) {
     return (
-      <ChartCard title="Habit completion" subtitle="Last 7 days">
-        <ChartEmptyState message="No habit prompts in the last 7 days. Enable a habit to start tracking." />
+      <ChartCard title="Habit completion" subtitle={subtitle}>
+        <ChartEmptyState
+          message={`No habit prompts in the last ${rangeDays} days. Enable a habit to start tracking.`}
+        />
       </ChartCard>
     );
   }
@@ -33,7 +51,7 @@ export function HabitCompletionCard() {
   const ratePct = Math.round(data.completionRate * 100);
 
   return (
-    <ChartCard title="Habit completion" subtitle="Last 7 days">
+    <ChartCard title="Habit completion" subtitle={subtitle}>
       <div className="flex items-baseline gap-2">
         <p className="text-3xl font-semibold">{ratePct}%</p>
         <p className="text-muted-foreground text-sm">

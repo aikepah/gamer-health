@@ -1,3 +1,19 @@
+/**
+ * Public surface of the domain layer.
+ *
+ * DELIBERATELY NOT EXPORTED: the explicit-user reader variants
+ * (`listCheckinsFor`, `listSessionsFor`, `getGamificationSummaryFor`,
+ * `queryHabitCompletionRaw`, `getProfileFor`). They take an arbitrary
+ * `userId` and perform NO authorization — they exist so an already-
+ * authorized caller (a coach-scoped service that ran `assertCoachOf` first)
+ * can read a specific target user without re-authorizing per query.
+ *
+ * Everything exported here is reachable by the post-MVP AI assistant as a
+ * Claude tool, so an unauthenticated whole-user reader on this surface would
+ * let the assistant read any user's data by passing a different id. Import
+ * them by relative path from inside `packages/core` only, immediately after
+ * an authorization check.
+ */
 export type { ServiceCtx } from "./ctx";
 export { ADMIN_AUDIT_ACTIONS, recordAdminAudit } from "./admin/audit";
 export type { AdminAuditAction, RecordAdminAuditEntry } from "./admin/audit";
@@ -172,6 +188,12 @@ export type {
 export { upsertHabit, upsertHabitInput } from "./habits/upsertHabit";
 export type { HabitRow, UpsertHabitInput } from "./habits/upsertHabit";
 export { validateHabitConfig } from "./habits/validateHabitConfig";
+export { queryHabitCompletionRaw } from "./habits/queryHabitCompletionRaw";
+export type {
+  HabitCompletionRawRow,
+  NonPendingPromptStatus,
+  QueryHabitCompletionRawParams,
+} from "./habits/queryHabitCompletionRaw";
 export { getOrCreateProfile } from "./profile/getOrCreateProfile";
 export type { ProfileRow } from "./profile/getOrCreateProfile";
 export { updateProfile, updateProfileInput } from "./profile/updateProfile";
@@ -355,6 +377,92 @@ export type {
 } from "./coaching/relationships/listCoachRoster";
 export { getMyCoach } from "./coaching/relationships/getMyCoach";
 export type { MyCoachSummary } from "./coaching/relationships/getMyCoach";
+
+// --- Coach player progress tracking (#12) -----------------------------------
+export {
+  getCoachPlayerOverview,
+  getCoachPlayerOverviewInput,
+} from "./coaching/players/getCoachPlayerOverview";
+export type {
+  CoachPlayerOverview,
+  GetCoachPlayerOverviewInput,
+} from "./coaching/players/getCoachPlayerOverview";
+export {
+  listCoachPlayerSessions,
+  listCoachPlayerSessionsInput,
+} from "./coaching/players/listCoachPlayerSessions";
+export type { ListCoachPlayerSessionsInput } from "./coaching/players/listCoachPlayerSessions";
+export {
+  listCoachPlayerCheckins,
+  listCoachPlayerCheckinsInput,
+} from "./coaching/players/listCoachPlayerCheckins";
+export type { ListCoachPlayerCheckinsInput } from "./coaching/players/listCoachPlayerCheckins";
+
+// --- Goals (#13) -------------------------------------------------------------
+export type { GoalListItem, GoalRow } from "./coaching/goals/common";
+export { createGoal, createGoalInput } from "./coaching/goals/createGoal";
+export type { CreateGoalInput } from "./coaching/goals/createGoal";
+export { updateGoal, updateGoalInput } from "./coaching/goals/updateGoal";
+export type { UpdateGoalInput } from "./coaching/goals/updateGoal";
+export {
+  setGoalStatus,
+  setGoalStatusInput,
+} from "./coaching/goals/setGoalStatus";
+export type { SetGoalStatusInput } from "./coaching/goals/setGoalStatus";
+export {
+  updateGoalProgress,
+  updateGoalProgressInput,
+} from "./coaching/goals/updateGoalProgress";
+export type { UpdateGoalProgressInput } from "./coaching/goals/updateGoalProgress";
+export { deleteGoal, deleteGoalInput } from "./coaching/goals/deleteGoal";
+export type { DeleteGoalInput } from "./coaching/goals/deleteGoal";
+export { listMyGoals, listMyGoalsInput } from "./coaching/goals/listMyGoals";
+export type { ListMyGoalsInput } from "./coaching/goals/listMyGoals";
+export {
+  listPlayerGoals,
+  listPlayerGoalsInput,
+} from "./coaching/goals/listPlayerGoals";
+export type { ListPlayerGoalsInput } from "./coaching/goals/listPlayerGoals";
+export { getRosterGoalSummary } from "./coaching/goals/getRosterGoalSummary";
+export type { RosterGoalSummaryRow } from "./coaching/goals/getRosterGoalSummary";
+
+// Coach habit assignment (#14, docs/features/coach-habit-assignment.md).
+export {
+  createCoachHabitDefinition,
+  createCoachHabitDefinitionInput,
+} from "./coaching/habits/createCoachHabitDefinition";
+export type { CreateCoachHabitDefinitionInput } from "./coaching/habits/createCoachHabitDefinition";
+export {
+  updateCoachHabitDefinition,
+  updateCoachHabitDefinitionInput,
+} from "./coaching/habits/updateCoachHabitDefinition";
+export type { UpdateCoachHabitDefinitionInput } from "./coaching/habits/updateCoachHabitDefinition";
+export {
+  setCoachHabitDefinitionArchived,
+  setCoachHabitDefinitionArchivedInput,
+} from "./coaching/habits/setCoachHabitDefinitionArchived";
+export type { SetCoachHabitDefinitionArchivedInput } from "./coaching/habits/setCoachHabitDefinitionArchived";
+export { listCoachHabitDefinitions } from "./coaching/habits/listCoachHabitDefinitions";
+export type { CoachHabitDefinitionRow } from "./coaching/habits/listCoachHabitDefinitions";
+export { listAssignableHabitDefinitions } from "./coaching/habits/listAssignableHabitDefinitions";
+export {
+  assignHabitToPlayer,
+  assignHabitToPlayerInput,
+} from "./coaching/habits/assignHabitToPlayer";
+export type { AssignHabitToPlayerInput } from "./coaching/habits/assignHabitToPlayer";
+export {
+  unassignHabitFromPlayer,
+  unassignHabitFromPlayerInput,
+} from "./coaching/habits/unassignHabitFromPlayer";
+export type { UnassignHabitFromPlayerInput } from "./coaching/habits/unassignHabitFromPlayer";
+export {
+  listPlayerHabitsForCoach,
+  listPlayerHabitsForCoachInput,
+} from "./coaching/habits/listPlayerHabitsForCoach";
+export type {
+  CoachPlayerHabitRow,
+  ListPlayerHabitsForCoachInput,
+} from "./coaching/habits/listPlayerHabitsForCoach";
 
 // --- Coaching session scheduling (#15) ---------------------------------------
 export {

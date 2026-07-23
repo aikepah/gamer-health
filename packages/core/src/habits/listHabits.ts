@@ -1,7 +1,7 @@
 import type { HabitConfig } from "@gamer-health/db/schema";
 import type { HabitTriggerType } from "@gamer-health/validators";
-import { and, eq, isNull } from "@gamer-health/db";
-import { Habit, HabitDefinition } from "@gamer-health/db/schema";
+import { and, eq, inArray, isNull } from "@gamer-health/db";
+import { Habit, HabitDefinition, user } from "@gamer-health/db/schema";
 
 import type { ServiceCtx } from "../ctx";
 import { requireUserId } from "../lib/auth";
@@ -22,8 +22,9 @@ export interface ListHabitsItem {
   /** The caller's saved config, else the definition's default. */
   config: HabitConfig;
   habitId: string | null;
-  /** Always null until #14 (coach-assigned habits). */
   assignedByUserId: string | null;
+  /** Resolved name of the assigner (#14); null when self-adopted. */
+  assignedByName: string | null;
 }
 
 /**
@@ -58,8 +59,27 @@ export async function listHabits(ctx: ServiceCtx): Promise<ListHabitsItem[]> {
     defsById.set(row.definition.id, row.definition);
   }
 
+  // One lookup for every assigner name referenced across the caller's
+  // instances, rather than a per-row query.
+  const assignerIds = Array.from(
+    new Set(
+      instances
+        .map((row) => row.assignedByUserId)
+        .filter((id): id is string => id !== null),
+    ),
+  );
+  const assigners =
+    assignerIds.length > 0
+      ? await ctx.db.query.user.findMany({
+          where: inArray(user.id, assignerIds),
+          columns: { id: true, name: true },
+        })
+      : [];
+  const assignerNameById = new Map(assigners.map((a) => [a.id, a.name]));
+
   const items: ListHabitsItem[] = Array.from(defsById.values()).map((def) => {
     const instance = instanceByDefinitionId.get(def.id);
+    const assignedByUserId = instance?.assignedByUserId ?? null;
     return {
       definitionId: def.id,
       slug: def.slug,
@@ -71,7 +91,10 @@ export async function listHabits(ctx: ServiceCtx): Promise<ListHabitsItem[]> {
       enabled: instance?.enabled ?? false,
       config: instance?.config ?? def.defaultConfig,
       habitId: instance?.id ?? null,
-      assignedByUserId: instance?.assignedByUserId ?? null,
+      assignedByUserId,
+      assignedByName: assignedByUserId
+        ? (assignerNameById.get(assignedByUserId) ?? null)
+        : null,
     };
   });
 

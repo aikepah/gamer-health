@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/", label: "Home" },
   { href: "/sessions", label: "Sessions" },
   { href: "/habits", label: "Habits" },
+  { href: "/goals", label: "Goals" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/settings", label: "Settings" },
 ] as const;
@@ -28,6 +29,7 @@ const ADMIN_LINK = { href: "/admin", label: "Admin" } as const;
 const COACH_LINKS = [
   { href: "/coach/profile", label: "Coach" },
   { href: "/coach/roster", label: "Roster" },
+  { href: "/coach/habits", label: "My habits" },
   { href: "/coach/sessions", label: "Coaching" },
 ] as const;
 

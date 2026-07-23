@@ -33,6 +33,7 @@ import {
   CoachProfile,
   Game,
   GameSession,
+  Goal,
   Habit,
   HabitDefinition,
   HabitPrompt,
@@ -710,6 +711,13 @@ function daysAgo(n: number): Date {
   return d;
 }
 
+/** "YYYY-MM-DD" `n` days from today (negative = in the past), UTC-anchored. */
+function dateStringDaysFromNow(n: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 // --- Coaching relationships & roster (#11): the ACTIVE relationship every
 // downstream coach-side feature (#12–#15) and `assertCoachOf` need to find
 // something on a fresh seed, plus one `ended` row so terminal-state
@@ -768,6 +776,94 @@ async function seedCoachingRelationships(
       endedAt: daysAgo(10),
       endedByUserId: player3Id,
       endReason: "Schedules stopped lining up.",
+    },
+  ]);
+}
+
+// --- Goals (#13): coach-assigned goals for the demo user, one per status
+// (plus a second `open` one that's overdue) so every UI state on `/goals`,
+// the coach's Goals panel, and the roster summary chip is reachable from a
+// fresh seed. Runs after `seedCoachingRelationships` (needs the active
+// demo <-> coach relationship's id). Player1 deliberately gets none — their
+// relationship with the demo coach is only `applied`, never `active`, so
+// `createGoal`'s `assertCoachOf` gate would reject it anyway; this is the
+// empty-state case for #13's UI. ---------------------------------------
+
+async function seedGoals(demoUserId: string, coachId: string) {
+  const relationship = await db.query.CoachingRelationship.findFirst({
+    where: and(
+      eq(CoachingRelationship.playerUserId, demoUserId),
+      eq(CoachingRelationship.coachUserId, coachId),
+      eq(CoachingRelationship.status, "active"),
+    ),
+    columns: { id: true },
+  });
+  if (!relationship) {
+    throw new Error(
+      "seedGoals: no active demo user <-> demo coach relationship found — run after seedCoachingRelationships",
+    );
+  }
+
+  // Idempotency: wipe the demo user's coach-assigned goals and re-insert.
+  // Scoped to this coach's assignments so a future self-authored goal
+  // (assignedByUserId null) for the demo user would survive a re-seed.
+  await db
+    .delete(Goal)
+    .where(
+      and(
+        eq(Goal.playerUserId, demoUserId),
+        eq(Goal.assignedByUserId, coachId),
+      ),
+    );
+
+  await db.insert(Goal).values([
+    {
+      // open, future target date, with a progress note already in progress.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "Wind down by 11pm on weeknights",
+      description: "Stop ranked queue by 10:30pm so there's time to unwind.",
+      targetDate: dateStringDaysFromNow(14),
+      status: "open",
+      progressNote: "Made it 4 of the last 5 nights — Thursday slipped.",
+    },
+    {
+      // open, but overdue — exercises the roster chip's "overdue" count and
+      // the player-side overdue badge.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "Take a break every 90 minutes",
+      description: "Stand up and stretch during long sessions.",
+      targetDate: dateStringDaysFromNow(-5),
+      status: "open",
+      progressNote: null,
+    },
+    {
+      // completed.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "Journal mood after ranked losses",
+      description: null,
+      targetDate: dateStringDaysFromNow(-20),
+      status: "completed",
+      progressNote: "Kept this up for three weeks straight — it helped.",
+      closedAt: daysAgo(3),
+    },
+    {
+      // abandoned.
+      playerUserId: demoUserId,
+      assignedByUserId: coachId,
+      relationshipId: relationship.id,
+      title: "No energy drinks after 6pm",
+      description: "Swap for water or an electrolyte mix in the evening.",
+      targetDate: null,
+      status: "abandoned",
+      progressNote:
+        "Caffeine wasn't the real issue — revisiting with sleep timing instead.",
+      closedAt: daysAgo(7),
     },
   ]);
 }
@@ -1133,6 +1229,163 @@ async function seedHabitEngine(
   return db.insert(HabitPrompt).values(prompts).returning();
 }
 
+// --- Coach habit assignment (#14): two coach-authored definitions (both
+// out-of-game — nutrition and mobility, the explicit non-gaming-habit
+// product requirement) plus three assignment states on the demo player: an
+// active custom assignment, a paused custom assignment, and a built-in
+// default the coach took over after the player had already self-adopted it.
+// Must run after seedHabitEngine above (which wipes/re-seeds the demo
+// user's Habit rows) so the hydrate-reassignment update below has a row to
+// find, and before seedAdminContentDemo for the same reason it documents. --
+
+const COACH_HABIT_DEFS = [
+  {
+    title: "Protein with lunch",
+    description:
+      "Getting enough protein at lunch supports recovery and steady energy for evening sessions.",
+    promptText: "Add a protein source to lunch",
+    triggerType: "daily_schedule" as const,
+    defaultConfig: { timeOfDay: "12:30" },
+  },
+  {
+    title: "Evening mobility",
+    description:
+      "A short mobility routine in the evening counteracts hours of sitting.",
+    promptText: "Do a 10-minute mobility routine",
+    triggerType: "daily_schedule" as const,
+    defaultConfig: { timeOfDay: "20:00" },
+  },
+] as const;
+
+/**
+ * Upserts the coach's two custom definitions by (createdByUserId, title) —
+ * there's no unique index to target for a coach-authored definition (unlike
+ * built-ins, which upsert by `slug`), so this looks the row up first.
+ */
+async function seedCoachHabitDefinitions(
+  coachId: string,
+): Promise<Map<string, string>> {
+  const byTitle = new Map<string, string>();
+
+  for (const def of COACH_HABIT_DEFS) {
+    const existing = await db.query.HabitDefinition.findFirst({
+      where: and(
+        eq(HabitDefinition.createdByUserId, coachId),
+        eq(HabitDefinition.title, def.title),
+      ),
+    });
+    if (existing) {
+      await db
+        .update(HabitDefinition)
+        .set({
+          description: def.description,
+          promptText: def.promptText,
+          defaultConfig: def.defaultConfig,
+        })
+        .where(eq(HabitDefinition.id, existing.id));
+      byTitle.set(def.title, existing.id);
+      continue;
+    }
+
+    const [row] = await db
+      .insert(HabitDefinition)
+      .values({
+        slug: null,
+        title: def.title,
+        description: def.description,
+        promptText: def.promptText,
+        triggerType: def.triggerType,
+        defaultConfig: def.defaultConfig,
+        isDefault: false,
+        createdByUserId: coachId,
+      })
+      .returning();
+    if (!row) {
+      throw new Error(`Failed to seed coach habit definition: ${def.title}`);
+    }
+    byTitle.set(def.title, row.id);
+  }
+
+  return byTitle;
+}
+
+async function seedCoachHabitAssignments(
+  demoUserId: string,
+  coachId: string,
+  definitionIdBySlug: Map<string, string>,
+) {
+  const defIdByTitle = await seedCoachHabitDefinitions(coachId);
+  const proteinDefId = defIdByTitle.get("Protein with lunch");
+  const mobilityDefId = defIdByTitle.get("Evening mobility");
+  if (!proteinDefId || !mobilityDefId) {
+    throw new Error("Seed coach habit definitions not found");
+  }
+
+  // "Protein with lunch": active assignment from the demo coach — the
+  // coach-custom, enabled assignment path.
+  await db
+    .insert(Habit)
+    .values({
+      userId: demoUserId,
+      definitionId: proteinDefId,
+      enabled: true,
+      config: { timeOfDay: "12:30" },
+      assignedByUserId: coachId,
+    })
+    .onConflictDoUpdate({
+      target: [Habit.userId, Habit.definitionId],
+      set: {
+        enabled: true,
+        config: { timeOfDay: "12:30" },
+        assignedByUserId: coachId,
+      },
+    });
+
+  // "Evening mobility": assigned but paused, so the paused-assigned state
+  // (player-side "Resume", coach-side "enabled: false") is reachable.
+  await db
+    .insert(Habit)
+    .values({
+      userId: demoUserId,
+      definitionId: mobilityDefId,
+      enabled: false,
+      config: { timeOfDay: "20:00" },
+      assignedByUserId: coachId,
+    })
+    .onConflictDoUpdate({
+      target: [Habit.userId, Habit.definitionId],
+      set: {
+        enabled: false,
+        config: { timeOfDay: "20:00" },
+        assignedByUserId: coachId,
+      },
+    });
+
+  // Built-in "hydrate": seedHabitEngine already self-adopted this for the
+  // demo user. Stamp it as coach-assigned too (assign is exactly this
+  // upsert-and-take-over in the real service) so the "default catalog
+  // habit reassigned by a coach" path renders as well.
+  const hydrateDefId = definitionIdBySlug.get("hydrate");
+  if (!hydrateDefId) {
+    throw new Error("Seed built-in habit definition not found: hydrate");
+  }
+  const [hydrateReassigned] = await db
+    .update(Habit)
+    .set({ assignedByUserId: coachId })
+    .where(
+      and(eq(Habit.userId, demoUserId), eq(Habit.definitionId, hydrateDefId)),
+    )
+    .returning({ id: Habit.id });
+  // seedHabitEngine must have self-adopted "hydrate" for the demo user first;
+  // if that ordering ever changes this silently produces no "coach took over
+  // a default habit" demo state — fail loudly instead of leaving it missing.
+  if (!hydrateReassigned) {
+    throw new Error(
+      "seed: demo user has no 'hydrate' habit instance to reassign — must run after seedHabitEngine",
+    );
+  }
+}
+
 // --- Check-ins: demo user's daily + post_session history. None dated today
 // so the home page's "Daily check-in" card is visible from a fresh seed. ---
 
@@ -1418,6 +1671,10 @@ async function seed() {
   // + one ended one, so #12–#15 and assertCoachOf have something to find.
   await seedCoachingRelationships(demoUser.id, player3Id, coachId);
 
+  // --- Goals (#13): coach-assigned goals for the demo user, one per status.
+  // Runs after seedCoachingRelationships (needs the active relationship).
+  await seedGoals(demoUser.id, coachId);
+
   // --- Coaching sessions (#15): one row per status on the active
   // relationship. Must follow seedCoachingRelationships (FK + cascade).
   await seedCoachingSessions(demoUser.id, coachId);
@@ -1428,6 +1685,12 @@ async function seed() {
     sessionsByGame,
     definitionIdBySlug,
   );
+
+  // --- Coach habit assignment (#14): coach-authored definitions (one
+  // nutrition, one mobility — non-gaming habits) + assigned instances on the
+  // demo player. Runs after seedHabitEngine for the same reason the admin
+  // content section below does (needs the demo user's Habit rows in place).
+  await seedCoachHabitAssignments(demoUser.id, coachId, definitionIdBySlug);
 
   // --- Admin content management (#7): games-catalog curation demo data +
   // one admin-created default habit definition. Runs after the habit engine
